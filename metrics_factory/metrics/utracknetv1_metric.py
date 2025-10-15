@@ -7,21 +7,45 @@ from ..builder import METRICS
 
 # --- 将 heatmap_to_coords 作为此模块的私有辅助函数 ---
 # 它不属于类，因为它不依赖于类的状态 (self)
+# 基于检测圆来推测坐标
+# def _heatmap_to_coords(heatmap: np.ndarray, threshold: int = 127):
+#     """
+#     使用霍夫圆变换将热力图转换为坐标点。
+#     """
+#     heatmap_uint8 = heatmap.astype(np.uint8)
+#     _, binary_map = cv2.threshold(heatmap_uint8, threshold, 255, cv2.THRESH_BINARY)
+    
+#     circles = cv2.HoughCircles(binary_map, cv2.HOUGH_GRADIENT, dp=1, minDist=1, 
+#                                param1=50, param2=2, minRadius=1, maxRadius=20)
+    
+#     if circles is not None and len(circles) == 1:
+#         x = circles[0][0][0]
+#         y = circles[0][0][1]
+#         return x, y
+    
+        
+#     return None, None
+
+
 def _heatmap_to_coords(heatmap: np.ndarray, threshold: int = 127):
     """
-    使用霍夫圆变换将热力图转换为坐标点。
+    一个鲁棒的坐标提取函数。
+    它对热力图进行二值化，然后寻找最大轮廓的质心作为坐标。
     """
-    heatmap_uint8 = heatmap.astype(np.uint8)
-    _, binary_map = cv2.threshold(heatmap_uint8, threshold, 255, cv2.THRESH_BINARY)
-    
-    circles = cv2.HoughCircles(binary_map, cv2.HOUGH_GRADIENT, dp=1, minDist=1, 
-                               param1=50, param2=2, minRadius=2, maxRadius=7)
-    
-    if circles is not None and len(circles) == 1:
-        x = circles[0][0][0]
-        y = circles[0][0][1]
-        return x, y
+    if heatmap.dtype != np.uint8:
+        heatmap = heatmap.astype(np.uint8)
         
+    _, binary_map = cv2.threshold(heatmap, threshold, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(binary_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        largest_contour = max(contours, key=cv2.contourArea)
+        M = cv2.moments(largest_contour)
+        if M["m00"] > 0:
+            cx = int(M["m10"] / M["m00"])
+            cy = int(M["m01"] / M["m00"])
+            return cx, cy
+            
     return None, None
 
 
