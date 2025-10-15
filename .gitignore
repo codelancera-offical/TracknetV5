@@ -1,1 +1,4 @@
 **/__pycache__
+data/tracknet/
+work_dirs/*
+.idea/
