@@ -1,0 +1,36 @@
+# 实验ID，用于命名保存结果的文件夹
+exp_id: 'UTrackNet_past_mode_baseline'
+
+# 数据集配置
+data:
+  data_dir: './Dataset'       # 数据集根目录
+  mode: 'context'                 # 'past' 或 'context'
+  use_motion_attention: True  # True 或 False
+  height: 360                  # 输入图像高度
+  width: 640                   # 输入图像宽度
+  
+# DataLoader 配置
+dataloader:
+  batch_size: 2
+  num_workers: 4
+  shuffle: True
+  pin_memory: True
+  
+# 模型配置
+model:
+  num_classes: 1
+
+# 训练配置
+train:
+  num_epochs: 500
+  steps_per_epoch: 200         # 每个epoch只训练有限步数，以更频繁地验证
+  optimizer: 'Adadelta'
+  lr: 1.0
+  loss:
+    name: 'WBCE'
+    params: {}
+  
+# 验证与保存配置
+validation:
+  val_intervals: 5             # 每隔多少个epoch验证一次
+  min_dist: 5                  # 评估指标中的距离阈值
