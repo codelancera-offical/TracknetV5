@@ -77,7 +77,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 evaluation = dict(
     interval=2,
     metric=dict(
-        type='UTrackNetV1Metric',
+        type='UTrackNetV2Metric',
         min_dist=10,
     )
 )
@@ -98,7 +98,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerHookWBCE', num_samples_to_save=10)
+    dict(type='ValidationVisualizerHookWBCE', num_samples_to_save=10, original_size=(720, 1280))
 ]
 
 seed = 42

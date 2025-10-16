@@ -23,8 +23,10 @@ class ValidationVisualizerHookWBCE(BaseHook):
     它会将 输入-预测-真值 对比图保存到实验目录下。
     """
 
-    def __init__(self, num_samples_to_save=5):
+    def __init__(self, num_samples_to_save=5, heatmap_threshold=127, original_size=(360, 640)):
         self.num_samples_to_save = num_samples_to_save
+        self.heatmap_threshold = heatmap_threshold
+        self.original_h, self.original_w = original_size
         self.vis_count = 0
 
     def before_val_epoch(self, runner):
@@ -82,8 +84,8 @@ class ValidationVisualizerHookWBCE(BaseHook):
                                markerType=cv2.MARKER_CROSS, markerSize=15, thickness=2)
 
             # 绘制红色的预测坐标
-            if x_pred is not None:
-                cv2.drawMarker(input_frame_bgr, (x_pred, y_pred), color=(0, 0, 255), 
+            if x_pred is not None and y_pred is not None:
+                cv2.drawMarker(input_frame_bgr, position=(int(x_pred), int(y_pred)), color=(0, 0, 255),
                                markerType=cv2.MARKER_CROSS, markerSize=15, thickness=2)
 
             # ✨ --- 新增代码结束 --- ✨
