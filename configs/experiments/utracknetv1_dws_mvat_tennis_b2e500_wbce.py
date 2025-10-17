@@ -14,7 +14,7 @@ model = dict(
     ),
     head=dict(
         type='UTrackNetV1DWSHeadSigmoid',
-        in_channels=64,
+        in_channels=16,
         out_channels=1
     )
 )
