@@ -21,15 +21,15 @@ class ConvBlock(nn.Module):
             nn.BatchNorm2d(out_channels),
             # ReLU 激活函数
             # inplace=True 是一个内存优化，它会直接修改输入，而不会为输出分配新的内存
-            nn.ReLU(inplace=True) 
-            
+            # nn.ReLU(inplace=True) 
+            nn.Sigmoid() # 变为sigmoid用于wbce损失
         )
 
     def forward(self, x):
         return self.conv(x)
 
 @HEADS.register_module
-class UTrackNetV1Head(nn.Module):
+class UTrackNetV1HeadSigmoid(nn.Module):
     """
     它通过一个1x1卷积将输入特征图的通道数映射到任务所需的类别数。
     """
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     # 2. 初始化 Head 网络
     # 使用我们定义的输入和输出通道数
-    model = UTrackNetV1Head(in_channels=in_channels, out_channels=out_channels).to(device)
+    model = UTrackNetV1HeadSigmoid(in_channels=in_channels, out_channels=out_channels).to(device)
     model.eval()
 
     # 3. 创建一个模拟的输入张量

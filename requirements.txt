@@ -1,20 +1,20 @@
-# --- 核心深度学习框架 ---
-# PyTorch, 我们的基础
-torch
-torchvision
+# --- Core Deep Learning Framework ---
+# PyTorch serves as the fundamental library for building and training models.
+torch==2.9.0+cu126
+torchvision==0.24.0+cu126
 
-# --- 图像处理与科学计算 ---
-# OpenCV, 用于所有图像的读写、变换操作
-opencv-python
-# Numpy, 用于高效的数组计算
-numpy
-# Pandas, 用于读取和解析我们的CSV标签文件
-pandas
-# Scipy, 用于计算评估指标中的欧氏距离
-scipy
+# --- Data Handling & Scientific Computing ---
+# Used for efficient array operations, data loading, and analysis.
+numpy==1.26.4
+pandas==2.2.2
+scipy==1.13.1
 
-# --- 日志、进度条与其他工具 ---
-# TensorboardX, 用于被 TensorboardLoggerHook 调用，记录训练日志
-tensorboardX
-# TQDM, 用于在终端显示美观的训练进度条
-tqdm
+# --- Image & Video Processing ---
+# OpenCV is essential for all image-related tasks like reading, writing,
+# and data augmentation.
+opencv-python==4.12.0.88
+
+# --- Utilities & Logging ---
+# Tools for experiment tracking, visualization, and progress monitoring.
+tensorboardX==2.6.4
+tqdm==4.66.5
