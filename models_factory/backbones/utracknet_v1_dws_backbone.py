@@ -2,13 +2,11 @@ import torch
 import torch.nn as nn
 from ..builder import BACKBONES
 
-from ..basic import BasicConvBlock as ConvBlock
-
-
+from ..basic import DepthwiseSeparableConvBlock as ConvBlock
 
 
 @BACKBONES.register_module
-class UTrackNetV1Backbone(nn.Module):
+class UTrackNetV1DWSBackbone(nn.Module):
     def __init__(self, in_channels=9):
         super().__init__()
         # --- Encoder Layers ---
@@ -71,7 +69,7 @@ if __name__ == "__main__":
     print(f"使用的设备: {device}")
     
     # 2. 初始化骨干网络
-    model = UTrackNetV1Backbone(in_channels=in_channels).to(device)
+    model = UTrackNetV1DWSBackbone(in_channels=in_channels).to(device)
     model.eval() # 设置为评估模式
     
     # 3. 创建一个测试张量
