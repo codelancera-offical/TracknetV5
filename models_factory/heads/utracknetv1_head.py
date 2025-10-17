@@ -1,32 +1,7 @@
 import torch
 import torch.nn as nn
 from ..builder import BACKBONES, HEADS
-
-class ConvBlock(nn.Module):
-    """
-    一个标准的卷积块，包含：Conv2d -> BatchNorm2d -> ReLU
-    """
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.conv = nn.Sequential(
-            # 2D卷积层
-            nn.Conv2d(
-                in_channels, 
-                out_channels, 
-                kernel_size=3, # 3x3 的卷积核是标准选择
-                padding=1,     # padding=1 保证在 kernel_size=3 时，特征图尺寸不变
-                bias=False     # 使用 BatchNorm 时，卷积层的偏置(bias)是多余的，可以省略
-            ),
-            # 批归一化层
-            nn.BatchNorm2d(out_channels),
-            # ReLU 激活函数
-            # inplace=True 是一个内存优化，它会直接修改输入，而不会为输出分配新的内存
-            nn.ReLU(inplace=True) 
-            
-        )
-
-    def forward(self, x):
-        return self.conv(x)
+from ..basic import BasicConvBlock as ConvBlock
 
 @HEADS.register_module
 class UTrackNetV1Head(nn.Module):

@@ -2,40 +2,75 @@ import torch
 import torch.nn as nn
 from ..builder import BACKBONES, HEADS
 
-class ConvBlock(nn.Module):
+
+class DepthwiseSeparableConvBlock(nn.Module):
     """
-    Simoidhead特质卷积块，符合wbce loss要求
+    深度可分离卷积块。
+    
+    将一个标准卷积分解为：
+    1. 深度卷积 (Depthwise Convolution)
+    2. 逐点卷积 (Pointwise Convolution)
+    
+    这可以显著减少参数量和计算成本。
     """
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, stride=1):
+        """
+        初始化深度可分离卷积块。
+        
+        参数:
+        - in_channels (int): 输入特征图的通道数。
+        - out_channels (int): 输出特征图的通道数。
+        - stride (int): 卷积步长，默认为 1。
+        """
         super().__init__()
-        self.conv = nn.Sequential(
-            # 2D卷积层
+        
+        self.depthwise_conv = nn.Sequential(
+            # --- 1. 深度卷积 ---
+            # 对每个输入通道应用一个独立的 3x3 卷积核。
+            # groups=in_channels 是实现深度卷积的关键。
+            # padding=1 保证当 stride=1 时，特征图尺寸不变。
             nn.Conv2d(
-                in_channels, 
-                out_channels, 
-                kernel_size=3, # 3x3 的卷积核是标准选择
-                padding=1,     # padding=1 保证在 kernel_size=3 时，特征图尺寸不变
-                bias=False     # 使用 BatchNorm 时，卷积层的偏置(bias)是多余的，可以省略
+                in_channels=in_channels,
+                out_channels=in_channels, # 深度卷积不改变通道数
+                kernel_size=3,
+                stride=stride,
+                padding=1,
+                groups=in_channels, # 关键参数！
+                bias=False
             ),
-            # 批归一化层
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+        self.pointwise_conv = nn.Sequential(
+            # --- 2. 逐点卷积 ---
+            # 使用 1x1 卷积来组合深度卷积的输出通道。
+            # 这允许我们改变输出的通道数。
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                bias=False
+            ),
             nn.BatchNorm2d(out_channels),
-            # ReLU 激活函数
-            # inplace=True 是一个内存优化，它会直接修改输入，而不会为输出分配新的内存
-            # nn.ReLU(inplace=True) 
-            nn.Sigmoid() # 变为sigmoid用于wbce损失
+            # nn.ReLU(inplace=True)
+            nn.Sigmoid()
         )
 
     def forward(self, x):
-        return self.conv(x)
+        """前向传播"""
+        x = self.depthwise_conv(x)
+        x = self.pointwise_conv(x)
+        return x
 
 @HEADS.register_module
-class UTrackNetV1HeadSigmoid(nn.Module):
+class UTrackNetV1DWSHeadSigmoid(nn.Module):
     """
     它通过一个1x1卷积将输入特征图的通道数映射到任务所需的类别数。
     """
     def __init__(self, in_channels=64, out_channels=256):
         super().__init__()
-        self.head = ConvBlock(in_channels, out_channels)
+        self.head = DepthwiseSeparableConvBlock(in_channels, out_channels)
 
     def forward(self, x):
         """
@@ -59,7 +94,7 @@ if __name__ == "__main__":
 
     # 2. 初始化 Head 网络
     # 使用我们定义的输入和输出通道数
-    model = UTrackNetV1HeadSigmoid(in_channels=in_channels, out_channels=out_channels).to(device)
+    model = UTrackNetV1DWSHeadSigmoid(in_channels=in_channels, out_channels=out_channels).to(device)
     model.eval()
 
     # 3. 创建一个模拟的输入张量
