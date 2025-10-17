@@ -130,14 +130,22 @@ class Runner:
             
             if (self.epoch + 1) % self.cfg.evaluation['interval'] == 0:
                 self.validate_epoch()
-            
-            # 保存最佳模型
-            current_f1 = self.outputs.get('val_metrics', {}).get('F1-Score', 0.0)
-            if current_f1 > self.best_metric:
-                self.best_metric = current_f1
-                best_model_path = self.work_dir / 'best_model.pth'
-                torch.save(self.model.state_dict(), best_model_path)
-                print(f"🏆 New best model saved to {best_model_path} with F1-score: {self.best_metric:.4f}")
+                
+                # --- 新增代码 START ---
+                # 1. 每次验证后，都保存当前 epoch 的模型快照
+                # 使用 f-string 创建一个独一无二的文件名，如 'epoch_5.pth'
+                checkpoint_path = self.work_dir / f'epoch_{self.epoch + 1}.pth'
+                torch.save(self.model.state_dict(), checkpoint_path)
+                print(f"✅ Checkpoint saved for epoch {self.epoch + 1} to {checkpoint_path}")
+                # --- 新增代码 END ---
+
+                # 2. 保留原有的逻辑，用于保存和更新性能最佳的模型
+                current_f1 = self.outputs.get('val_metrics', {}).get('F1-Score', 0.0)
+                if current_f1 > self.best_metric:
+                    self.best_metric = current_f1
+                    best_model_path = self.work_dir / 'best_model.pth'
+                    torch.save(self.model.state_dict(), best_model_path)
+                    print(f"🏆 New best model saved to {best_model_path} with F1-score: {self.best_metric:.4f}")
             
             # 只有在学习率调度器存在时，才执行 .step()
             if self.lr_scheduler is not None:

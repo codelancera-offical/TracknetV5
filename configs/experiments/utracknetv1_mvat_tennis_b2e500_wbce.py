@@ -75,7 +75,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
-    interval=2,
+    interval=100,
     metric=dict(
         type='UTrackNetV1Metric',
         min_dist=10,
