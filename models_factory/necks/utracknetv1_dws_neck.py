@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from ..builder import NECKS
-from ..basic import BasicConvBlock as ConvBlock
+from ..basic import DepthwiseSeparableConvBlock as ConvBlock
 
 
 @NECKS.register_module
-class UTrackNetV1Neck(nn.Module):
+class UTrackNetV1DWSNeck(nn.Module):
     def __init__(self):
         super().__init__()
         # --- Decoder Layers ---
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     print(f"使用的设备: {device}")
 
     # 2. 初始化 Neck 网络
-    model = UTrackNetV1Neck().to(device)
+    model = UTrackNetV1DWSNeck().to(device)
     model.eval()
 
     # 3. 创建模拟的输入特征字典 (Mock Input Features)
