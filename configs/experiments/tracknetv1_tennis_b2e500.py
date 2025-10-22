@@ -25,9 +25,8 @@ data_root = 'C:/Users/lance/Desktop/NetStory-Algo/Ball Tracking/data/tracknet'
 attention_pipeline = [
     dict(type='LoadMultiImagesFromPaths', to_rgb=True),
     dict(type='Resize', keys=['path_prev', 'path', 'path_next'], size=input_size),
-    dict(type='GenerateMotionAttention', threshold=40),
     dict(type='ConcatChannels', 
-         keys=['path_prev', 'att_prev_to_curr', 'path', 'att_curr_to_next', 'path_next'],
+         keys=['path_prev', 'path', 'path_next'],
          output_key='image'),
     dict(type='LoadAndFormatTarget'),
     dict(type='Finalize',

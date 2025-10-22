@@ -3,7 +3,7 @@ import torch.nn as nn
 from ..builder import LOSSES
 
 @LOSSES.register_module
-class TracknetV1Loss(nn.Module):
+class TrackNetV1Loss(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     B, C, H, W = 4, 256, 640, 360  # 批大小=4, 类别/灰度等级=256, 尺寸=64x64
     
     # 1. 初始化损失函数
-    loss_fn = TracknetV1Loss()
+    loss_fn = TrackNetV1Loss()
     print(f"损失函数已初始化: {loss_fn.criterion}")
     
     # 2. 创建模拟输入
