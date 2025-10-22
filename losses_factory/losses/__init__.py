@@ -1,8 +1,10 @@
 # 包内点名
 from .utracknetv1_loss import UTrackNetV1Loss
 from .utracknetv2_loss_1_channel import UTrackNetV2LossWith1Channel
+from .tracknetv1_loss import TracknetV1Loss
 
 __all__ = [
     'UTrackNetV1Loss',
-    'UTrackNetV2LossWith1Channel'
+    'UTrackNetV2LossWith1Channel',
+    'TracknetV1Loss',
 ]
