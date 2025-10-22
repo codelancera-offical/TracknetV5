@@ -19,7 +19,7 @@ model = dict(
 # --- 2.1 通用参数 ---
 input_size = (360, 640)  # (height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = 'C:/Users/lance/Desktop/NetStory-Algo/Ball Tracking/data/tracknet'
+data_root = './data/tracknet'
 
 # --- 2.2 数据处理流水线定义 ---
 attention_pipeline = [
@@ -72,7 +72,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 evaluation = dict(
     interval=100,
     metric=dict(
-        type='UTrackNetV1Metric',
+        type='TrackNetV1Metric',
         min_dist=10,
     )
 )
@@ -93,7 +93,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerHook', num_samples_to_save=50)
+    dict(type='ValidationVisualizerHookV1', num_samples_to_save=50)
 ]
 
 seed = 42
