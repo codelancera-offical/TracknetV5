@@ -2,7 +2,8 @@ import cv2
 import numpy as np
 from scipy.spatial import distance
 import torch
-
+from sympy.codegen.cfunctions import isnan
+import math
 from ..builder import METRICS
 
 
@@ -82,7 +83,7 @@ class TrackNetV2Metric:
                 x_pred, y_pred = _heatmap_to_coords(predictions[i][j], threshold=self.heatmap_threshold)
 
                 # 当vis==0时，x_gt和y_gt为nan
-                x_gt, y_gt = coords_gt[j][i][0].item(), coords_gt[j][i][1].item()
+                x_gt, y_gt = coords_gt[j][0][i].item(), coords_gt[j][1][i].item()
                 vis = visibility_gt[j][i].item()
 
                 if x_pred is not None:

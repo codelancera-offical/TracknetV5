@@ -89,32 +89,31 @@ class ValidationVisualizerV2Hook(BaseHook):
             x_gt = []
             y_gt = []
             for frame_idx in range(3):
-                x_gt_raw = coords_gt_batch[frame_idx][i][0].item()
-                y_gt_raw = coords_gt_batch[frame_idx][i][1].item()
+                x_gt_raw = coords_gt_batch[frame_idx][0][i].item()
+                y_gt_raw = coords_gt_batch[frame_idx][1][i].item()
                 x_gt.append(x_gt_raw)
                 y_gt.append(y_gt_raw)
 
             # 在所有帧原图上绘制标记
             frames_with_marks = []
             for frame_idx in range(3):
-                frame_with_marks = input_frames[frame_idx].copy()
+                input_img = input_frames[frame_idx]
 
                 # 绘制绿色的真实标记
                 if not math.isnan(x_gt[frame_idx]) and not math.isnan(y_gt[frame_idx]):
                     x_gt_scaled = int(x_gt[frame_idx] * (w / self.original_w))
                     y_gt_scaled = int(y_gt[frame_idx] * (h / self.original_h))
-                    cv2.drawMarker(frame_with_marks, (x_gt_scaled, y_gt_scaled),
+                    cv2.drawMarker(input_img, (x_gt_scaled, y_gt_scaled),
                                    color=(0, 255, 0), markerType=cv2.MARKER_CROSS,
                                    markerSize=15, thickness=2)
 
                 # 绘制红色的预测标记
                 x_pred, y_pred = pred_coords[frame_idx]
                 if x_pred is not None:
-                    cv2.drawMarker(frame_with_marks, (int(x_pred), int(y_pred)),
+                    cv2.drawMarker(input_img, (int(x_pred), int(y_pred)),
                                    color=(0, 0, 255), markerType=cv2.MARKER_CROSS,
                                    markerSize=15, thickness=2)
 
-                frames_with_marks.append(frame_with_marks)
 
             # --- 拼接画布 ---
             canvas = np.zeros((h * 3, w * 3, 3), dtype=np.uint8)
