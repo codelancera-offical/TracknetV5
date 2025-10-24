@@ -8,5 +8,5 @@ __all__ = [
     'UTrackNetV1Loss',
     'UTrackNetV2LossWith1Channel',
     'TrackNetV1Loss',
-    'TrackNetV2Loss'
+    'TrackNetV2Loss',
 ]

@@ -1,50 +1,38 @@
 import torch
 import torch.nn as nn
 from ..builder import NECKS
-
+from ..basic import BasicConvBlock as ConvBlock
+from ..basic import ChannelAttention as CAM
 # ==================== 建筑模块 ====================
 # 为了让此脚本能独立运行，我们在此处包含 TrackNetV3 所需的基础模块定义
 
-class Conv2DBlock(nn.Module):
-    """ Conv2D + BN + ReLU """
-    def __init__(self, in_dim, out_dim):
-        super().__init__()
-        self.conv = nn.Conv2d(in_dim, out_dim, kernel_size=3, padding='same', bias=False)
-        self.bn = nn.BatchNorm2d(out_dim)
-        self.relu = nn.ReLU()
-    
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        return x
-
 class Double2DConv(nn.Module):
-    """ Conv2DBlock x 2 """
+    """ ConvBlock x 2 """
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.conv_1 = Conv2DBlock(in_dim, out_dim)
-        self.conv_2 = Conv2DBlock(out_dim, out_dim)
+        self.conv_1 = ConvBlock(in_dim, out_dim)
+        self.conv_2 = ConvBlock(out_dim, out_dim)
 
     def forward(self, x):
         x = self.conv_1(x)
         x = self.conv_2(x)
         return x
-    
+
+
 class Triple2DConv(nn.Module):
-    """ Conv2DBlock x 3 """
+    """ ConvBlock x 3 """
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.conv_1 = Conv2DBlock(in_dim, out_dim)
-        self.conv_2 = Conv2DBlock(out_dim, out_dim)
-        self.conv_3 = Conv2DBlock(out_dim, out_dim)
+        self.conv_1 = ConvBlock(in_dim, out_dim)
+        self.conv_2 = ConvBlock(out_dim, out_dim)
+        self.conv_3 = ConvBlock(out_dim, out_dim)
 
     def forward(self, x):
         x = self.conv_1(x)
         x = self.conv_2(x)
         x = self.conv_3(x)
         return x
-        
+
 # ==================== Neck 主体 ====================
 
 @NECKS.register_module
@@ -55,31 +43,54 @@ class TrackNetV3Neck(nn.Module):
     """
     def __init__(self):
         super().__init__()
-        self.up_block_1 = Triple2DConv(512 + 256, 256) # 输入: bottleneck(512) + skip3(256)
+        self.up_block_1 = Double2DConv(512 + 256, 256) # 输入: bottleneck(512) + skip3(256)
         self.up_block_2 = Double2DConv(256 + 128, 128) # 输入: 上一层(256) + skip2(128)
         self.up_block_3 = Double2DConv(128 + 64, 64)   # 输入: 上一层(128) + skip1(64)
+
+
+        # 注意力模块（跳跃连接路径）
+        self.cam0_1 = CAM(in_planes=256)
+        self.cam0_2 = CAM(in_planes=128)
+        self.cam0_3 = CAM(in_planes=64)
+
+        # 注意力模块（上采样路径）
+        self.cam1 = CAM(in_planes=256)
+        self.cam2 = CAM(in_planes=128)
+        self.cam3 = CAM(in_planes=64)
+
+        # 上采样层
+        self.upsample = nn.Upsample(scale_factor=2)
+
+
 
     def forward(self, features):
         """
         输入: 来自Backbone的特征字典
         输出: 精炼后的高分辨率特征图
         """
-        x3 = features['skip3']
-        x2 = features['skip2']
-        x1 = features['skip1']
+        x3 = features['skip3'] # 64
+        x2 = features['skip2'] # 128
+        x1 = features['skip1'] # 256
         x = features['bottleneck']
 
+        # L1
         x = nn.Upsample(scale_factor=2)(x)
-        x = torch.cat([x, x3], dim=1)
+        x3_att = x3 * self.cam0_1(x3)
+        x = torch.cat([x, x3_att], dim=1)
         x = self.up_block_1(x)
+        x = x * self.cam1(x)
         
         x = nn.Upsample(scale_factor=2)(x)
-        x = torch.cat([x, x2], dim=1)
+        x2_att = x2 * self.cam0_2(x2)
+        x = torch.cat([x, x2_att], dim=1)
         x = self.up_block_2(x)
+        x = x * self.cam2(x)
         
         x = nn.Upsample(scale_factor=2)(x)
-        x = torch.cat([x, x1], dim=1)
+        x1_att = x1 * self.cam0_3(x1)
+        x = torch.cat([x, x1_att], dim=1)
         x = self.up_block_3(x)
+        x = x * self.cam3(x)
         
         return x
 
