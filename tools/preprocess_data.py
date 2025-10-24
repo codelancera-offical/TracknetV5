@@ -103,9 +103,9 @@ def process_data(input_dir: Path, output_dir: Path, mode: str, config: dict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="TrackNet Dataset Preprocessing Script")
-    parser.add_argument('--input_dir', type=str, required=True, help='Path to the raw data directory.')
-    parser.add_argument('--output_dir', type=str, required=True, help='Path to save the processed data and labels.')
-    parser.add_argument('--mode', type=str, required=True, choices=['past', 'context'], help="Processing mode.")
+    parser.add_argument('--input_dir','-in', type=str, required=True, help='Path to the raw data directory.')
+    parser.add_argument('--output_dir','-out', type=str, required=True, help='Path to save the processed data and labels.')
+    parser.add_argument('--mode','-m', type=str, required=True, choices=['past', 'context'], help="Processing mode.")
     parser.add_argument('--height', type=int, default=720, help='Target image height.')
     parser.add_argument('--width', type=int, default=1280, help='Target image width.')
     parser.add_argument('--size', type=int, default=20, help='Radius of the Gaussian kernel.')
