@@ -23,7 +23,7 @@ model = dict(
 # --- 2.1 通用参数 ---
 input_size = (360, 640)  # (height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = './data/tracknet'
+data_root = './data/tracknet-data2'
 
 # --- 2.2 数据处理流水线定义 ---
 attention_pipeline = [
@@ -75,10 +75,11 @@ optimizer = dict(type='Adadelta', lr=1.0)
 
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
-    interval=100,
+    interval=2,
     metric=dict(
         type='UTrackNetV1Metric',
         min_dist=10,
+        original_size=(1080,1920)
     )
 )
 
@@ -98,7 +99,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerHookWBCE', num_samples_to_save=10)
+    dict(type='ValidationVisualizerHookWBCE', num_samples_to_save=10, original_size=(1080,1920))
 ]
 
 seed = 42

@@ -10,22 +10,22 @@ class UTrackNetV1DWSBackbone(nn.Module):
     def __init__(self, in_channels=9):
         super().__init__()
         # --- Encoder Layers ---
-        self.conv1 = ConvBlock(in_channels, 64)
-        self.conv2 = ConvBlock(64, 64)
+        self.conv1 = ConvBlock(in_channels, 16)
+        self.conv2 = ConvBlock(16, 16)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        self.conv3 = ConvBlock(64, 128)
-        self.conv4 = ConvBlock(128, 128)
+        self.conv3 = ConvBlock(16, 32)
+        self.conv4 = ConvBlock(32, 32)
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        self.conv5 = ConvBlock(128, 256)
-        self.conv6 = ConvBlock(256, 256)
-        self.conv7 = ConvBlock(256, 256)
+        self.conv5 = ConvBlock(32, 64)
+        self.conv6 = ConvBlock(64, 64)
+        self.conv7 = ConvBlock(64, 64)
         self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        self.conv8 = ConvBlock(256, 512)
-        self.conv9 = ConvBlock(512, 512)
-        self.conv10 = ConvBlock(512, 512)
+        self.conv8 = ConvBlock(64, 128)
+        self.conv9 = ConvBlock(128, 128)
+        self.conv10 = ConvBlock(128, 128)
 
     def forward(self, x):
         features = {}
@@ -57,7 +57,7 @@ class UTrackNetV1DWSBackbone(nn.Module):
 # ==================== 测试代码 ====================
 if __name__ == "__main__":
     # 1. 定义超参数和设备
-    # 假设输入图像尺寸为 256x256
+    # 假设输入图像尺寸为 64x64
     # 批大小(batch_size)为 2
     # 输入通道数(in_channels)为 9
     batch_size = 2
@@ -80,14 +80,14 @@ if __name__ == "__main__":
     # 4. 定义预期的输出形状
     # 根据网络结构计算:
     # skip1: H, W 不变
-    # skip2: H, W 减半 (256 -> 128)
-    # skip3: H, W 再减半 (128 -> 64)
+    # skip2: H, W 减半 (64 -> 32)
+    # skip3: H, W 再减半 (32 -> 64)
     # bottleneck: H, W 再减半 (64 -> 32)
     expected_shapes = {
         'skip1': (batch_size, 64, input_height, input_width),
-        'skip2': (batch_size, 128, input_height // 2, input_width // 2),
-        'skip3': (batch_size, 256, input_height // 4, input_width // 4),
-        'bottleneck': (batch_size, 512, input_height // 8, input_width // 8)
+        'skip2': (batch_size, 32, input_height // 2, input_width // 2),
+        'skip3': (batch_size, 64, input_height // 4, input_width // 4),
+        'bottleneck': (batch_size, 128, input_height // 8, input_width // 8)
     }
     
     print("\n--- 开始测试 ---")

@@ -3,19 +3,15 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='UTrackNetV1',
+    type='TrackNetV1',
     backbone=dict(
-        type='UTrackNetV1DWSBackbone',
-        # Attention流水线输出13个通道
-        in_channels=13
+        type='TrackNetV1Backbone',
     ),
     neck=dict(
-        type='UTrackNetV1DWSNeck'
+        type='TrackNetV1Neck'
     ),
     head=dict(
-        type='UTrackNetV1DWSHeadSigmoid',
-        in_channels=16,
-        out_channels=1
+        type='TrackNetV1Head',
     )
 )
 
@@ -29,9 +25,8 @@ data_root = './data/tracknet'
 attention_pipeline = [
     dict(type='LoadMultiImagesFromPaths', to_rgb=True),
     dict(type='Resize', keys=['path_prev', 'path', 'path_next'], size=input_size),
-    dict(type='GenerateMotionAttention', threshold=40),
-    dict(type='ConcatChannels',
-         keys=['path_prev', 'att_prev_to_curr', 'path', 'att_curr_to_next', 'path_next'],
+    dict(type='ConcatChannels', 
+         keys=['path_prev', 'path', 'path_next'],
          output_key='image'),
     dict(type='LoadAndFormatTarget'),
     dict(type='Finalize',
@@ -64,7 +59,7 @@ data = dict(
 # ------------------- 3. 损失函数定义 (Loss) -------------------
 
 loss = dict(
-    type='UTrackNetV2LossWith1Channel'
+    type='TrackNetV1Loss',
 )
 
 # ------------------- 4. 优化策略定义 (Optimization) -------------------
@@ -77,7 +72,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 evaluation = dict(
     interval=100,
     metric=dict(
-        type='UTrackNetV1Metric',
+        type='TrackNetV1Metric',
         min_dist=10,
     )
 )
@@ -90,7 +85,7 @@ work_dir = f'./work_dirs/{Path(__file__).stem}'
 steps_per_epoch = 200
 
 log_config = dict(
-    interval=10,
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
@@ -98,7 +93,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerHookWBCE', num_samples_to_save=10)
+    dict(type='ValidationVisualizerHookV1', num_samples_to_save=50)
 ]
 
 seed = 42

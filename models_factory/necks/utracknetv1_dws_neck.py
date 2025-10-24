@@ -10,20 +10,20 @@ class UTrackNetV1DWSNeck(nn.Module):
         super().__init__()
         # --- Decoder Layers ---
         self.ups1 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        # 输入通道: bottleneck(512) + skip3(256) = 768
-        self.conv11 = ConvBlock(512 + 256, 256)
-        self.conv12 = ConvBlock(256, 256)
-        self.conv13 = ConvBlock(256, 256)
+        # 输入通道: bottleneck(128) + skip3(64) = 768
+        self.conv11 = ConvBlock(128 + 64, 64)
+        self.conv12 = ConvBlock(64, 64)
+        self.conv13 = ConvBlock(64, 64)
         
         self.ups2 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        # 输入通道: 上一层输出(256) + skip2(128) = 384
-        self.conv14 = ConvBlock(256 + 128, 128)
-        self.conv15 = ConvBlock(128, 128)
+        # 输入通道: 上一层输出(64) + skip2(32) = 384
+        self.conv14 = ConvBlock(64 + 32, 32)
+        self.conv15 = ConvBlock(32, 32)
         
         self.ups3 = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        # 输入通道: 上一层输出(128) + skip1(64) = 192
-        self.conv16 = ConvBlock(128 + 64, 64)
-        self.conv17 = ConvBlock(64, 64)
+        # 输入通道: 上一层输出(32) + skip1(16) = 192
+        self.conv16 = ConvBlock(32 + 16, 16)
+        self.conv17 = ConvBlock(16, 16)
 
     def forward(self, features):
         skip1_feat = features['skip1']
@@ -33,15 +33,15 @@ class UTrackNetV1DWSNeck(nn.Module):
 
         # --- Decoder with Skip Connections ---
         x = self.ups1(bottleneck_feat)
-        x = torch.cat([x, skip3_feat], dim=1) # 维度 H, W: 64x64
+        x = torch.cat([x, skip3_feat], dim=1) # 维度 H, W: 16x16
         x = self.conv13(self.conv12(self.conv11(x)))
         
         x = self.ups2(x)
-        x = torch.cat([x, skip2_feat], dim=1) # 维度 H, W: 128x128
+        x = torch.cat([x, skip2_feat], dim=1) # 维度 H, W: 32x32
         x = self.conv15(self.conv14(x))
         
         x = self.ups3(x)
-        x = torch.cat([x, skip1_feat], dim=1) # 维度 H, W: 256x256
+        x = torch.cat([x, skip1_feat], dim=1) # 维度 H, W: 64x64
         x = self.conv17(self.conv16(x))
         
         return x
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # 1. 定义超参数和设备
     # 这些参数应该与 Backbone 测试中的参数保持一致
     batch_size = 2
-    height = 640
+    height = 160
     width = 360
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -64,10 +64,10 @@ if __name__ == "__main__":
     # 3. 创建模拟的输入特征字典 (Mock Input Features)
     # 这些形状是 Backbone 模块的预期输出
     mock_features = {
-        'skip1': torch.randn(batch_size, 64, height, width).to(device),
-        'skip2': torch.randn(batch_size, 128, height // 2, width // 2).to(device),
-        'skip3': torch.randn(batch_size, 256, height // 4, width // 4).to(device),
-        'bottleneck': torch.randn(batch_size, 512, height // 8, width // 8).to(device)
+        'skip1': torch.randn(batch_size, 16, height, width).to(device),
+        'skip2': torch.randn(batch_size, 32, height // 2, width // 2).to(device),
+        'skip3': torch.randn(batch_size, 64, height // 4, width // 4).to(device),
+        'bottleneck': torch.randn(batch_size, 128, height // 8, width // 8).to(device)
     }
     
     print("\n--- 模拟输入特征形状 ---")
@@ -76,8 +76,8 @@ if __name__ == "__main__":
 
     # 4. 定义预期的最终输出形状
     # 经过三次上采样，最终输出的特征图尺寸应与 skip1 相同
-    # 输出通道数由最后一个 ConvBlock (conv17) 决定, 为 64
-    expected_output_shape = (batch_size, 64, height, width)
+    # 输出通道数由最后一个 ConvBlock (conv17) 决定, 为 16
+    expected_output_shape = (batch_size, 16, height, width)
     
     print(f"\n预期的最终输出形状: {expected_output_shape}")
     print("\n--- 开始测试 ---")

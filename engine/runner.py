@@ -104,14 +104,14 @@ class Runner:
             # 计算损失和指标
             loss = self.criterion(logits, targets)
             val_losses.append(loss.item())
-            self.metric.update(logits, data_batch)
+            self.metric.update(logits, data_batch) # metric传入的是logits和对应的batch，算出是tp还是啥别的
             
             # 3. 新增：广播“验证iter结束”事件
             # 这是 ValidationVisualizerHook 工作的关键！
             self.call_hooks('after_val_iter')
 
         # 计算并打印最终结果
-        eval_results = self.metric.compute()
+        eval_results = self.metric.compute() # 这里才算出来F1
         eval_results['loss'] = np.mean(val_losses)
         self.outputs['val_metrics'] = eval_results 
         print(f"Validation Results: {eval_results}")

@@ -5,16 +5,16 @@ from pathlib import Path
 model = dict(
     type='UTrackNetV1',
     backbone=dict(
-        type='UTrackNetV1DWSBackbone',
+        type='UTrackNetV1BackboneSAM',
         # Attention流水线输出13个通道
         in_channels=13
     ),
     neck=dict(
-        type='UTrackNetV1DWSNeck'
+        type='UTrackNetV1Neck'
     ),
     head=dict(
-        type='UTrackNetV1DWSHeadSigmoid',
-        in_channels=16,
+        type='UTrackNetV1HeadSigmoid',
+        in_channels=64,
         out_channels=1
     )
 )
@@ -90,7 +90,7 @@ work_dir = f'./work_dirs/{Path(__file__).stem}'
 steps_per_epoch = 200
 
 log_config = dict(
-    interval=10,
+    interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')

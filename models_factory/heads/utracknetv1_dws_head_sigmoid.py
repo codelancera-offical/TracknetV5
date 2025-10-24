@@ -68,7 +68,7 @@ class UTrackNetV1DWSHeadSigmoid(nn.Module):
     """
     它通过一个1x1卷积将输入特征图的通道数映射到任务所需的类别数。
     """
-    def __init__(self, in_channels=64, out_channels=256):
+    def __init__(self, in_channels=16, out_channels=1):
         super().__init__()
         self.head = DepthwiseSeparableConvBlock(in_channels, out_channels)
 
