@@ -95,6 +95,30 @@ class LoadAndFormatTarget:
         return results
 
 @TRANSFORMS.register_module
+class LoadAndFormatMultiTargets:
+    """加载、缩放并格式化多张GT热力图为Tensor，维度为[3, h, w]。"""
+
+    def __init__(self, keys=['gt_path_prev', 'gt_path', 'gt_path_next'], output_key='target'):
+        self.keys = keys
+        self.output_key = output_key
+
+    def __call__(self, results: dict) -> dict:
+        targets = []
+        size = (results['input_width'], results['input_height'])
+
+        for key in self.keys:
+            gt_path = results[key]
+            target_np = cv2.imread(str(gt_path), cv2.IMREAD_GRAYSCALE)
+            target_np = cv2.resize(target_np, size, interpolation=cv2.INTER_NEAREST)
+            targets.append(target_np)
+
+        # 堆叠成 [3, H, W] 维度
+        target_stack = np.stack(targets, axis=0)  # 形状: (3, H, W)
+        results[self.output_key] = torch.from_numpy(target_stack.astype(np.float32))
+        return results
+
+
+@TRANSFORMS.register_module
 class Finalize:
     """
     将数据转为Tensor并收集最终需要的键值对，作为dataloader的最终输出。
