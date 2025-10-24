@@ -7,8 +7,7 @@ from  .datasets import tracknetv2_dataset
 
 # 导入我们定义的所有自定义transform模块。
 # 同理，这将触发所有 @TRANSFORMS.register_module 的执行。
-# from .transforms import utracknetv1_transforms
-from .transforms import tracknetv2_transforms
+from .transforms import utracknetv1_transforms
 
 # --- 2. 提供简洁的外部接口 ---
 # 从我们内部的 builder.py 文件中，将核心的构建函数“提升”到工厂的“门面”上。
