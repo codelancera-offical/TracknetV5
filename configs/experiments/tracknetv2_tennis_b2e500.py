@@ -20,7 +20,8 @@ model = dict(
 
 # ------------------- 2. 数据定义 (Data) -------------------
 # --- 2.1 通用参数 ---
-input_size = (360, 640)  # (height, width)
+input_size = (288, 512)  # (height, width)
+original_size = (1080, 1920) # 原图片大小(height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
 data_root = './data/tracknet-data2'
 
@@ -76,11 +77,11 @@ optimizer = dict(type='Adadelta', lr=1.0)
 
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
-    interval=1,
+    interval=5,
     metric=dict(
         type='TrackNetV2Metric',
         min_dist=10,
-        original_size=(1080,1920)
+        original_size=original_size
     )
 )
 
@@ -100,7 +101,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=10, original_size=(1080,1920))
+    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=10, original_size=original_size)
 ]
 
 seed = 42
