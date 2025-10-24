@@ -53,7 +53,7 @@ class TrackNetV1Metric:
         probs = torch.nn.functional.softmax(logits, dim=1)
         # 然后选出每个像素所有通道中最大激活通道的索引
         # 直接把这个索引作为对应像素的值, 压缩1维度，生成 [B,360, 640] (自动压缩掉一个维度)
-        predictions = torch.argmax(probs, dim=1) # 直接就是 0-255, 直接传入热力图预测函数即可
+        predictions = torch.argmax(probs, dim=1).cpu().numpy() # 直接就是 0-255, 直接传入热力图预测函数即可
 
         _, h, w = predictions.shape
         scale_h = h / self.original_h
