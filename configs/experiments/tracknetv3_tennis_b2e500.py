@@ -23,7 +23,7 @@ model = dict(
 input_size = (288, 512)  # (height, width)
 original_size = (720, 1280) # 原图片大小(height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = './data/tracknet'
+data_root = './data/tracknetv2'
 
 # --- 2.2 数据处理流水线定义 ---
 pipeline = [
@@ -66,7 +66,7 @@ data = dict(
 # ------------------- 3. 损失函数定义 (Loss) -------------------
 
 loss = dict(
-    type='TrackNetV3Loss'
+    type='TrackNetV2Loss'
 )
 
 # ------------------- 4. 优化策略定义 (Optimization) -------------------
@@ -77,7 +77,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
-    interval=5,
+    interval=100,
     metric=dict(
         type='TrackNetV2Metric',
         min_dist=10,
@@ -101,7 +101,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=10, original_size=original_size)
+    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=50, original_size=original_size)
 ]
 
 seed = 42
