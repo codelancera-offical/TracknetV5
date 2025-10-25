@@ -1,49 +1,83 @@
 import torch
 import torch.nn as nn
 from ..builder import BACKBONES
+from ..basic import BasicConvBlock as ConvBlock
 
 # ==================== 建筑模块 ====================
 # 为了让此脚本能独立运行，我们在此处包含 TrackNetV3 所需的基础模块定义
 
-class Conv2DBlock(nn.Module):
-    """ Conv2D + BN + ReLU """
-    def __init__(self, in_dim, out_dim):
-        super().__init__()
-        self.conv = nn.Conv2d(in_dim, out_dim, kernel_size=3, padding='same', bias=False)
-        self.bn = nn.BatchNorm2d(out_dim)
-        self.relu = nn.ReLU()
-    
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        return x
 
 class Double2DConv(nn.Module):
-    """ Conv2DBlock x 2 """
+    """ ConvBlock x 2 """
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.conv_1 = Conv2DBlock(in_dim, out_dim)
-        self.conv_2 = Conv2DBlock(out_dim, out_dim)
+        self.conv_1 = ConvBlock(in_dim, out_dim)
+        self.conv_2 = ConvBlock(out_dim, out_dim)
 
     def forward(self, x):
         x = self.conv_1(x)
         x = self.conv_2(x)
         return x
-    
+
+
 class Triple2DConv(nn.Module):
-    """ Conv2DBlock x 3 """
+    """ ConvBlock x 3 """
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.conv_1 = Conv2DBlock(in_dim, out_dim)
-        self.conv_2 = Conv2DBlock(out_dim, out_dim)
-        self.conv_3 = Conv2DBlock(out_dim, out_dim)
+        self.conv_1 = ConvBlock(in_dim, out_dim)
+        self.conv_2 = ConvBlock(out_dim, out_dim)
+        self.conv_3 = ConvBlock(out_dim, out_dim)
 
     def forward(self, x):
         x = self.conv_1(x)
         x = self.conv_2(x)
         x = self.conv_3(x)
         return x
+
+class MultiScaleResidualBlock(nn.Module):
+    """
+    多尺度残差快
+    并行使用1x1 3x3 5x5卷积核，然后特征融合
+    带有一个残差连接
+    """
+    def __init__(self, in_dim, out_dim):
+        super(MultiScaleResidualBlock, self).__init__()
+
+        # 路径1： 1x1 -> 3x3
+        self.conv_1x1_path = nn.Sequential(
+            ConvBlock(in_dim, out_dim, k=1),
+            ConvBlock(out_dim, out_dim, k=3)
+        )
+
+        # 路径2： 3x3 -> 3x3 (标准路径，也用于残差连接)
+        self.conv_3x3_path = nn.Sequential(
+            ConvBlock(in_dim, out_dim, k=3),
+            ConvBlock(out_dim, out_dim, k=3)
+        )
+
+        # 路径3： 5x5 -> 3x3 (更大感受野)
+        self.conv_5x5_path = nn.Sequential(
+            ConvBlock(in_dim, out_dim, k=5),
+            ConvBlock(out_dim, out_dim, k=3)
+        )
+
+        # 融合卷积：将3*out_dim 融合回 out_dim
+        self.fusion_conv = ConvBlock(out_dim * 3, out_dim, 3)
+
+    def forward(self, x):
+        # 1. 兵分三路
+        path1_out = self.conv_1x1_path(x)
+        path2_out = self.conv_3x3_path(x)
+        path3_out = self.conv_5x5_path(x)
+
+        # 2. 特征融合
+        x_fused = torch.cat([path1_out, path2_out, path3_out], dim=1) # C维度上拼接
+        x_out = self.fusion_conv(x_fused)
+
+        # 3. 残差连接
+        x_out = x_out + path2_out
+
+        return x_out
 
 # ==================== Backbone 主体 ====================
 
@@ -55,10 +89,15 @@ class TrackNetV3Backbone(nn.Module):
     """
     def __init__(self, in_channels=9):
         super().__init__()
-        self.down_block_1 = Double2DConv(in_channels, 64)
-        self.down_block_2 = Double2DConv(64, 128)
-        self.down_block_3 = Triple2DConv(128, 256)
+        # 下采样层 这里计算量是不是少了很多？ 速度有没有提升？（层数貌似变少了）
+        self.down_block_1 = MultiScaleResidualBlock(in_channels, 64)
+        self.down_block_2 = MultiScaleResidualBlock(64, 128)
+        self.down_block_3 = MultiScaleResidualBlock(128, 256)
+
+        # 池化层
         self.pool = nn.MaxPool2d((2, 2), stride=(2, 2))
+
+        # 瓶颈层
         self.bottleneck = Triple2DConv(256, 512)
 
     def forward(self, x):

@@ -7,7 +7,7 @@ class BasicConvBlock(nn.Module):
     一个更通用的卷积块，可以自定义激活函数。
     包含：Conv2d -> BatchNorm2d -> Activation
     """
-    def __init__(self, in_channels, out_channels, activation='relu'):
+    def __init__(self, in_channels, out_channels, activation='relu', k=3):
         super().__init__()
         
         # 根据传入的参数选择激活函数
@@ -26,8 +26,8 @@ class BasicConvBlock(nn.Module):
             nn.Conv2d(
                 in_channels, 
                 out_channels, 
-                kernel_size=3,
-                padding=1,
+                kernel_size=k,
+                padding=(k - 1) // 2,
                 bias=False
             ),
             nn.BatchNorm2d(out_channels),
@@ -36,3 +36,4 @@ class BasicConvBlock(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
+
