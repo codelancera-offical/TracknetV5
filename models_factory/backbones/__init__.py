@@ -8,6 +8,7 @@ from .utracknetv1_backbone_cbam import UTrackNetV1BackboneCBAM
 from .utracknetv1_backbone_sam import UTrackNetV1BackboneSAM
 from .tracknetv1_backbone import TrackNetV1Backbone
 from .tracknetv2_backbone import TrackNetV2Backbone
+from .trackentv4_backbone import TrackNetV4Backbone
 __all__ = [
     'UTrackNetV1Backbone',
     'TrackNetV3Backbone',
@@ -16,5 +17,6 @@ __all__ = [
     "UTrackNetV1BackboneCBAM",
     'UTrackNetV1BackboneSAM',
     'TrackNetV1Backbone',
-    'TrackNetV2Backbone'
+    'TrackNetV2Backbone',
+    'TrackNetV4Backbone'
 ]
