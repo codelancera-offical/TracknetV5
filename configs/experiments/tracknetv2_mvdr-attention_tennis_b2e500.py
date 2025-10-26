@@ -77,7 +77,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
-    interval=100,
+    interval=5,
     metric=dict(
         type='TrackNetV2Metric',
         min_dist=10,
@@ -101,7 +101,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=50, original_size=original_size)
+    dict(type='ValidationVisualizerV2MVDRHook', num_samples_to_save=50, original_size=original_size)
 ]
 
 seed = 42
