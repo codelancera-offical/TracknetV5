@@ -30,13 +30,13 @@ class TrackNetV2MVDRBackbone(nn.Module):
     def forward(self, x):
         features = {}
 
-        att_12 = x[:, 3:5]
+        att_12 = x[:, 3:5] # 0-2 3-4 5-7 8-9 10-12
         att_23 = x[:, 8:10]
 
         features['mvdr_attention'] = torch.cat([
             att_12,
             att_23
-        ])
+        ], dim=1)
 
         # --- Encoder ---
         x = self.conv1(x)
