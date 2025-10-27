@@ -6,8 +6,8 @@ from ..basic import BasicConvBlock as ConvBlock
 
 
 @BACKBONES.register_module
-class TrackNetV2Backbone(nn.Module):
-    def __init__(self, in_channels=9):
+class TrackNetV2MVDRBackbone(nn.Module):
+    def __init__(self, in_channels=13):
         super().__init__()
         # --- Encoder Layers ---
         self.conv1 = ConvBlock(in_channels, 64)
@@ -29,6 +29,14 @@ class TrackNetV2Backbone(nn.Module):
 
     def forward(self, x):
         features = {}
+
+        att_12 = x[:, 3:5]
+        att_23 = x[:, 8:10]
+
+        features['mvdr_attention'] = torch.cat([
+            att_12,
+            att_23
+        ])
 
         # --- Encoder ---
         x = self.conv1(x)
