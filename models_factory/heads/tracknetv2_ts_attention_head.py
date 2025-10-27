@@ -35,7 +35,7 @@ class ConvBlock(nn.Module):
 @HEADS.register_module
 class TrackNetV2TSATTHead(nn.Module):
     """
-    时空注意力头 (TrackNetV2TSATTHead)
+    时空注意力头 (TrackNetV2TSATTHead) - 【残差精修版】
     
     架构:
     1.  Conv1 ("草稿"): [B, C_in, H, W] -> [B, 3, H_out, W_out]
@@ -46,8 +46,11 @@ class TrackNetV2TSATTHead(nn.Module):
         -   为每个 Token 添加 "共享的空间编码" + "独立的时间编码"。
     4.  Transformer ("精修"):
         -   在完整的 N=1728 个时空 Token 序列上运行全局自注意力。
+        -   【关键】: Transformer 现在学习的是 "修正值" (Residual)。
     5.  Decoder ("重建"):
-        -   将精修后的 Token 序列还原为 3 张热力图。
+        -   将精修后的 Token 序列还原为 3 张 "修正热力图"。
+    6.  Residual Connection ("应用修正"):
+        -   最终输出 = "草稿" + "修正热力图"
     """
     
     def __init__(self, 
@@ -104,7 +107,7 @@ class TrackNetV2TSATTHead(nn.Module):
             num_layers=num_transformer_layers
         )
         
-        # 2.4 解码器 (Decoder) - 将Token还原回热力图
+        # 2.4 解码器 (Decoder) - 将Token还原回 "修正热力图"
         # 这是一个简单的 "Patch Upsampling" 解码器
         self.decoder_head = nn.ConvTranspose2d(
             in_channels=embed_dim, 
@@ -120,6 +123,7 @@ class TrackNetV2TSATTHead(nn.Module):
         # x 初始形状: [B, C_in, H_in, W_in]
         
         # 1. 生成“草稿”预测 (无Sigmoid)
+        # 【重要】: 这是我们的残差连接的来源
         draft_heatmaps = self.conv1(x)  # [B, 3, 288, 512]
         
         # 保存 Batch_size 和 H, W 供后续使用
@@ -181,13 +185,21 @@ class TrackNetV2TSATTHead(nn.Module):
         repaired_next_feat = repaired_next_flat.permute(0, 2, 1).reshape(B, self.embed_dim, H_feat, W_feat)
 
         # 2.8 用解码器头上采样
-        # [B, 128, 18, 32] -> [B, 1, 288, 512]
-        out_prev = self.decoder_head(repaired_prev_feat)
-        out_curr = self.decoder_head(repaired_curr_feat)
-        out_next = self.decoder_head(repaired_next_feat)
+        # 【修改】: 输出的是 "修正值" (Residual)
+        out_prev_residual = self.decoder_head(repaired_prev_feat) # [B, 1, 288, 512]
+        out_curr_residual = self.decoder_head(repaired_curr_feat)
+        out_next_residual = self.decoder_head(repaired_next_feat)
 
-        # 3. 最终拼回 [B, 3, H, W] 并应用 Sigmoid
-        final_output = torch.cat([out_prev, out_curr, out_next], dim=1)
-        final_output = self.final_sigmoid(final_output)
+        # 3. 最终拼回 [B, 3, H, W] 并应用残差连接
+        
+        # [B, 3, 288, 512]
+        residual = torch.cat([out_prev_residual, out_curr_residual, out_next_residual], dim=1)
+        
+        # 【【【【【 关键修改点 】】】】】
+        # 将 "草稿" 和 "修正值" 相加
+        final_output_before_sigmoid = draft_heatmaps + residual
+        
+        # 在相加之后，再进行 Sigmoid 激活
+        final_output = self.final_sigmoid(final_output_before_sigmoid)
 
         return final_output
