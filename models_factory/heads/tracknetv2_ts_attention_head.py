@@ -1,42 +1,61 @@
 import torch
 import torch.nn as nn
-from ..builder import BACKBONES, HEADS
+from ..builder import HEADS  # 假设你使用的是 mmcv 或类似框架
 
-# 你原来的 ConvBlock (假设它在这里)
+# -----------------------------------------------------------------
+# 1. 基础卷积块 (如你所定义)
+# -----------------------------------------------------------------
 class ConvBlock(nn.Module):
     """
-    Simoidhead特质卷积块，符合wbce loss要求
-    【建议】: 这里的Sigmoid最好去掉，Sigmoid应该在Head的最后输出时才使用。
+    Simoidhead特质卷积块。
+    注意：Sigmoid 激活函数已移至 Head 的末尾，以获得更好的训练稳定性。
     """
+
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.conv = nn.Sequential(
+            # 2D卷积层
             nn.Conv2d(
                 in_channels,
                 out_channels,
-                kernel_size=1, 
-                bias=False
+                kernel_size=1,  # 1x1 卷积
+                bias=False  # 使用 BatchNorm 时，卷积层的偏置(bias)是多余的
             ),
-            # nn.Sigmoid() # 建议在这里移除，加到Head的最后
+            # nn.BatchNorm2d(out_channels), # 你可以根据需要添加
+            # nn.ReLU(inplace=True),      # 你可以根据需要添加
         )
 
     def forward(self, x):
         return self.conv(x)
 
 
+# -----------------------------------------------------------------
+# 2. 你的时空注意力头 (Spatio-Temporal Attention Head)
+# -----------------------------------------------------------------
 @HEADS.register_module
 class TrackNetV2TSATTHead(nn.Module):
     """
-    时空注意力头：
-        先卷积到3个通道, 然后使用我们讨论的“方法B”(时空序列注意力)来进行调整！
-        三通道尺寸的输出为 Bx3x288x512, 每个通道分别代表 t-1, t, t+1时刻的网球位置的热力图预测形式！
+    时空注意力头 (TrackNetV2TSATTHead)
+    
+    架构:
+    1.  Conv1 ("草稿"): [B, C_in, H, W] -> [B, 3, H_out, W_out]
+        -   用1x1卷积预测 t-1, t, t+1 三个时刻的"草稿"热力图。
+    2.  Encoder ("分块"):
+        -   将 3 张热力图拆分，各自独立进行分块嵌入。
+    3.  Positional Embedding ("分解式编码"):
+        -   为每个 Token 添加 "共享的空间编码" + "独立的时间编码"。
+    4.  Transformer ("精修"):
+        -   在完整的 N=1728 个时空 Token 序列上运行全局自注意力。
+    5.  Decoder ("重建"):
+        -   将精修后的 Token 序列还原为 3 张热力图。
     """
     
     def __init__(self, 
                  in_channels=64,       # Backbone的输入通道
                  out_channels=3,       # 最终输出通道 (t-1, t, t+1)
-                 embed_dim=128,        # Transformer的工维度
+                 img_size=(288, 512),  # "草稿"热力图的尺寸 (H, W)
                  patch_size=16,        # 分块大小
+                 embed_dim=128,        # Transformer的工维度
                  num_transformer_layers=4, # Transformer层数
                  num_transformer_heads=8   # Transformer多头注意力的头数
                 ):
@@ -46,9 +65,12 @@ class TrackNetV2TSATTHead(nn.Module):
         self.embed_dim = embed_dim
         
         # 1. 初始预测 (生成 "草稿")
+        # [B, 64, H_in, W_in] -> [B, 3, 288, 512]
         self.conv1 = ConvBlock(in_channels, out_channels)
         
+        # -----------------------------------------------
         # 2. 时空注意力模块 (Spatio-Temporal Attention Module)
+        # -----------------------------------------------
         
         # 2.1 分块嵌入 (Patch Embedding)
         # 注意 in_channels=1，因为我们会把三张图拆开分别送进去
@@ -59,19 +81,23 @@ class TrackNetV2TSATTHead(nn.Module):
             stride=patch_size
         )
         
-        # 2.2 时空位置编码
-        # 我们的输入尺寸是 (288, 512)，分块大小 16x16
-        H_feat, W_feat = 288 // patch_size, 512 // patch_size  # (18, 32)
+        # 2.2 分解式时空位置编码 (Factorized Spatio-Temporal Positional Embedding)
+        H_img, W_img = img_size
+        H_feat, W_feat = H_img // patch_size, W_img // patch_size  # (18, 32)
         num_patches_per_frame = H_feat * W_feat                 # 576
-        num_total_patches = num_patches_per_frame * 3           # 1728
         
-        self.pos_embed = nn.Parameter(torch.randn(1, num_total_patches, embed_dim))
+        # (1) 空间位置编码 (在 t-1, t, t+1 之间共享)
+        self.spatial_pos_embed = nn.Parameter(torch.randn(1, num_patches_per_frame, embed_dim))
         
+        # (2) 时间位置编码 (t-1, t, t+1)
+        self.time_embed = nn.Parameter(torch.randn(1, 3, embed_dim)) # 3个时间步
+
         # 2.3 Transformer 编码器
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim, 
             nhead=num_transformer_heads, 
-            batch_first=True  # 确认输入格式为 [B, N, D]
+            batch_first=True,  # 确认输入格式为 [B, N, D]
+            dim_feedforward=embed_dim * 4 # 标准配置
         )
         self.transformer_encoder = nn.TransformerEncoder(
             encoder_layer, 
@@ -91,51 +117,56 @@ class TrackNetV2TSATTHead(nn.Module):
         self.final_sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        # x 初始形状: [B, 64, H, W]
+        # x 初始形状: [B, C_in, H_in, W_in]
         
-        # 1. 生成“草稿”预测
-        x = self.conv1(x)  # [B, 3, 288, 512]
+        # 1. 生成“草稿”预测 (无Sigmoid)
+        draft_heatmaps = self.conv1(x)  # [B, 3, 288, 512]
         
         # 保存 Batch_size 和 H, W 供后续使用
-        B, C, H, W = x.shape
+        B, C, H, W = draft_heatmaps.shape
         H_feat, W_feat = H // self.patch_size, W // self.patch_size # 18, 32
-        num_patches_per_frame = H_feat * W_feat                   # 576
 
+        # -----------------------------------------------
         # 2. 时空注意力模块
+        # -----------------------------------------------
         
-        # 2.1 拆分并添加通道维度 【修正点1】
+        # 2.1 拆分并添加通道维度
         # .unsqueeze(1) 将 [B, H, W] 变为 [B, 1, H, W]
-        prev_x = x[:, 0, :, :].unsqueeze(1) # t-1
-        curr_x = x[:, 1, :, :].unsqueeze(1) # t 
-        next_x = x[:, 2, :, :].unsqueeze(1) # t+1
+        draft_prev = draft_heatmaps[:, 0, :, :].unsqueeze(1) # t-1
+        draft_curr = draft_heatmaps[:, 1, :, :].unsqueeze(1) # t 
+        draft_next = draft_heatmaps[:, 2, :, :].unsqueeze(1) # t+1
 
         # 2.2 各自分块嵌入
-        embd_prev = self.embed_conv(prev_x) # [B, 128, 18, 32]
-        embd_curr = self.embed_conv(curr_x) 
-        embd_next = self.embed_conv(next_x)
+        embd_prev = self.embed_conv(draft_prev) # [B, 128, 18, 32]
+        embd_curr = self.embed_conv(draft_curr) 
+        embd_next = self.embed_conv(draft_next)
 
-        # 2.3 各自展平 【修正点2】
-        # start_dim=2 保证形状变为 [B, 128, 576]
-        flat_prev = torch.flatten(embd_prev, start_dim=2) 
-        flat_curr = torch.flatten(embd_curr, start_dim=2)
-        flat_next = torch.flatten(embd_next, start_dim=2)
+        # 2.3 展平并转置 (一步到位)
+        # [B, 128, 18, 32] -> flatten(2) -> [B, 128, 576] -> permute(0,2,1) -> [B, 576, 128]
+        flat_prev = embd_prev.flatten(2).permute(0, 2, 1)
+        flat_curr = embd_curr.flatten(2).permute(0, 2, 1)
+        flat_next = embd_next.flatten(2).permute(0, 2, 1)
 
-        # 2.4 拼接成时空序列
-        # [B, 128, 576*3] -> [B, 128, 1728]
-        final_input = torch.cat([flat_prev, flat_curr, flat_next], dim=2) 
+        # 2.4 添加分解式位置编码 (你的方案)
+        # 提取时间编码, 形状 [1, 1, 128] 以便广播
+        time_prev_embed = self.time_embed[:, 0, :].unsqueeze(1)
+        time_curr_embed = self.time_embed[:, 1, :].unsqueeze(1)
+        time_next_embed = self.time_embed[:, 2, :].unsqueeze(1)
         
-        # 2.5 维度转置 【修正点3】
-        # [B, 128, 1728] -> [B, 1728, 128] 以符合Transformer的 [B, N, D] 格式
-        final_input_permuted = final_input.permute(0, 2, 1)
+        # 总编码 = Patch数据 + 空间编码 + 时间编码
+        in_prev = flat_prev + self.spatial_pos_embed + time_prev_embed
+        in_curr = flat_curr + self.spatial_pos_embed + time_curr_embed
+        in_next = flat_next + self.spatial_pos_embed + time_next_embed
 
-        # 2.6 添加位置编码
-        final_input_with_pos = final_input_permuted + self.pos_embed
-
-        # 2.7 叠Transformer编码器 (核心)
+        # 2.5 拼接成时空序列
+        # [B, 1728, 128] (N = 576 * 3)
+        final_input_with_pos = torch.cat([in_prev, in_curr, in_next], dim=1)
+        
+        # 2.6 叠Transformer编码器 ("精修")
         # repaired_sequence 形状仍然是 [B, 1728, 128]
         repaired_sequence = self.transformer_encoder(final_input_with_pos)
 
-        # 2.8 解码
+        # 2.7 解码
         
         # 拆分回 T-1, T, T+1
         # 每一块的形状都是 [B, 576, 128]
@@ -149,7 +180,7 @@ class TrackNetV2TSATTHead(nn.Module):
         repaired_curr_feat = repaired_curr_flat.permute(0, 2, 1).reshape(B, self.embed_dim, H_feat, W_feat)
         repaired_next_feat = repaired_next_flat.permute(0, 2, 1).reshape(B, self.embed_dim, H_feat, W_feat)
 
-        # 2.9 用解码器头上采样
+        # 2.8 用解码器头上采样
         # [B, 128, 18, 32] -> [B, 1, 288, 512]
         out_prev = self.decoder_head(repaired_prev_feat)
         out_curr = self.decoder_head(repaired_curr_feat)
