@@ -31,7 +31,22 @@ class TrackNetV2LRMVDRBackbone(nn.Module):
     def forward(self, x):
         features = {}
 
-        x = self.learnable_mvdr_module(x)
+        mvdr_attention = self.learnable_mvdr_module(x)
+        features['mvdr_attention'] = mvdr_attention
+
+        F1 = x[:, 0:3]
+        F2 = x[:, 3:6]
+        F3 = x[:, 6:9]
+        att_12 = mvdr_attention[:, 0:2]
+        att_23 = mvdr_attention[:, 2:4]
+
+        x = torch.cat([
+            F1,
+            att_12,
+            F2,
+            att_23,
+            F3
+        ], dim=1)
 
         # --- Encoder ---
         x = self.conv1(x)

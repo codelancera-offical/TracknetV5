@@ -46,13 +46,13 @@ class MotionDirectionAttentionLayer(nn.Module):
         darken2_att = self._power_normalization(torch.relu(-diff2), self.a, self.b)
     
         return torch.cat([
-            img_prev_tensor, 
+            # img_prev_tensor, 
             brighten1_att, 
             darken1_att, 
-            img_curr_tensor, 
+            # img_curr_tensor, 
             brighten2_att, 
             darken2_att, 
-            img_next_tensor
+            # img_next_tensor
         ], dim=1)
 # --- 模块定义结束 ---
 
