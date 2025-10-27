@@ -7,6 +7,7 @@ from .tracknetv1_head import TrackNetV1Head
 from .tracknetv2_head import TrackNetV2Head
 from .tracknetv4_head import TrackNetV4Head
 from .tracknetv2_learnable_mvdr_head import TrackNetV2LRMVDRHead
+from .tracknetv2_ts_attention_head import TrackNetV2TSATTHead
 
 __all__ = [
     'UTrackNetV1Head',
@@ -17,5 +18,6 @@ __all__ = [
     'TrackNetV1Head',
     'TrackNetV2Head',
     'TrackNetV4Head',
-    'TrackNetV2LRMVDRHead'
+    'TrackNetV2LRMVDRHead',
+    'TrackNetV2TSATTHead'
 ]
