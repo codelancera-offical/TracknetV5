@@ -3,9 +3,9 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV2LRMVDR',
+    type='TrackNetV2MVDR',
     backbone=dict(
-        type='TrackNetV2LRMVDRBackbone',
+        type='TrackNetV2MVDRBackbone',
         in_channels=13
     ),
     neck=dict(
