@@ -1,6 +1,7 @@
 import argparse
 import torch
 torch.backends.cudnn.benchmark = True
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 import importlib.util
 from pathlib import Path
@@ -93,17 +94,42 @@ def main():
     print("✅ All Hooks built successfully.")
 
     # 构建学习率调度器 (增加一个判断，使其成为可选项)
+    scheduler = None
     if hasattr(cfg, 'lr_config') and cfg.lr_config is not None:
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer,
-            step_size=cfg.lr_config['step'][0],
-            gamma=cfg.lr_config.get('gamma', 0.1)
-        )
-        print("✅ LR scheduler built successfully.")
+        policy = cfg.lr_config.get('policy', None)
+
+        if policy == 'Step':
+            if 'step' not in cfg.lr_config:
+                raise ValueError("Step policy requires 'step'(list of milestones in lr_config")
+            # 使用Pytorch的MultiStepLR调度器, 它允许在指定的多个轮次进行学习率衰减
+            scheduler = lr_scheduler.MultiStepLR(
+                optimizer, # 传入优化器
+                milestones=cfg.lr_config['step'],
+                gamma=cfg.lr_config.get('gamma', 0.1) # 每次衰减乘以的因子，默认为0.1
+            )
+            print(f"✅ LR MultiStepLR scheduler built successfully with milestones={cfg.lr_config['step']} and gamma={cfg.lr_config.get('gamma', 0.1)}.")
+
+        elif policy == 'CosineAnnealing':
+            scheduler = lr_scheduler.CosineAnnealingLR(
+                optimizer, # 需要传入你的优化器
+                # T_max: 余弦周期的1/4，通常设置为总轮数减去预热轮数，
+                #        这样在预热结束后开始衰减，并在训练结束时达到最低点
+                T_max=cfg.total_epochs - cfg.lr_config.get('warmup_iters', 0),
+                # eta_min: 学习率的最小值，默认为 0
+                eta_min=cfg.lr_config.get('min_lr', 0)
+             )
+            print(f"✅ LR CosineAnnealingLR scheduler built successfully.")
+        else:
+            # 3.4 如果 policy 不是 'Step' 或 'CosineAnnealing'，或者为 None
+            #     打印警告信息，告知用户将使用固定学习率
+            print(f"⚠️ LR policy '{policy}' is not supported yet or is None. Running with a fixed learning rate or optimizer's default.")
+            scheduler = None # 确保不支持的策略不会创建调度器，保持为 None
     else:
-        lr_scheduler = None # 如果没有配置，则为 None
+        # 5. 如果配置文件中根本没有定义 'lr_config'
+        scheduler = None # 保持 scheduler 为 None
         print("ℹ️ No LR scheduler configured. Running with a fixed learning rate.")
-    
+
+
     # --- D. 实例化“赛车手”(Runner) ---
     # 将所有构建好的组件“装备”给Runner
     runner = Runner(

@@ -70,11 +70,24 @@ loss = dict(
 )
 
 # ------------------- 4. 优化策略定义 (Optimization) -------------------
-# ✨ 修正一：根据您的要求，更换为 Adadelta 优化器，学习率为 1.0
-optimizer = dict(type='Adadelta', lr=1.0)
+# (2) 定义优化器配置：添加梯度裁剪 (防止梯度爆炸)
+optimizer_config = dict(
+    grad_clip=dict(max_norm=1.0)
+)
 
-# ✨ 修正二：根据您的要求，移除了学习率调度器 (lr_config)
-
+# (3) 定义学习率配置：Warmup + Step Decay
+lr_config = dict(
+    # 策略：使用 Step Decay
+    policy='Step',
+    # 线性预热：保证 Transformer 稳定启动
+    warmup='linear',          # 使用线性预热
+    warmup_iters=50*200,          # 预热轮数（前 50 个 epoch）
+    warmup_ratio=1e-6,        # 初始学习率 (从接近 0 开始预热)
+    # 学习率衰减步长 (epoch)
+    step=[300, 400],          # 在第 300 轮和第 400 轮结束时触发衰减
+    # 衰减因子
+    gamma=0.1                 # 每次衰减时，学习率乘以 0.1
+)
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
     interval=100,
