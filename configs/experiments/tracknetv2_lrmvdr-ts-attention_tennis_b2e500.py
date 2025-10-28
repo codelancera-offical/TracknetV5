@@ -70,6 +70,8 @@ loss = dict(
 )
 
 # ------------------- 4. 优化策略定义 (Optimization) -------------------
+optimizer = dict(type='AdamW', lr=1e-4)
+
 # (2) 定义优化器配置：添加梯度裁剪 (防止梯度爆炸)
 optimizer_config = dict(
     grad_clip=dict(max_norm=1.0)
