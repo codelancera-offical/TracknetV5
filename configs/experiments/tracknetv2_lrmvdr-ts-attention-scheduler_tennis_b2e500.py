@@ -82,9 +82,9 @@ lr_config = dict(
     # 策略：使用 Step Decay
     policy='Step',
     # 线性预热：保证 Transformer 稳定启动
-    warmup='linear',          # 使用线性预热
-    warmup_iters=50*200,          # 预热轮数（前 50 个 epoch）
-    warmup_ratio=1e-6,        # 初始学习率 (从接近 0 开始预热)
+    # warmup='linear',          # 使用线性预热
+    # warmup_iters=50*200,          # 预热轮数（前 50 个 epoch）
+    # warmup_ratio=1e-6,        # 初始学习率 (从接近 0 开始预热)
     # 学习率衰减步长 (epoch)
     step=[300, 400],          # 在第 300 轮和第 400 轮结束时触发衰减
     # 衰减因子
