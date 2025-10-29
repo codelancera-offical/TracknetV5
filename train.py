@@ -1,10 +1,13 @@
 import argparse
 import torch
 torch.backends.cudnn.benchmark = True
-from torch.optim import lr_scheduler
+# from torch.optim import lr_scheduler
+import torch.optim.lr_scheduler as pt_lr_scheduler
 from torch.utils.data import DataLoader
 import importlib.util
 from pathlib import Path
+
+# torch.autograd.set_detect_anomaly(True)
 
 # --- 1. 导入我们所有的“工厂”的建造函数 ---
 # 导入顶层包，对应的 __init__.py 文件会确保所有模块都已注册
@@ -37,7 +40,7 @@ def main():
     # args = parser.parse_args()
     #
     # cfg = load_config_from_path(args.config)
-    cfg = load_config_from_path('./configs/experiments/tracknetv2_lrmvdr-ts-attention_tennis_b2e500.py')
+    cfg = load_config_from_path('./configs/experiments/tracknetv2_lrmvdr-ts-attention-scheduler_tennis_b2e500.py')
     print("✅ Configuration loaded successfully.")
     
     # --- B. 环境设置 (由 Runner 内部处理或在这里设置) ---
@@ -102,7 +105,7 @@ def main():
             if 'step' not in cfg.lr_config:
                 raise ValueError("Step policy requires 'step'(list of milestones in lr_config")
             # 使用Pytorch的MultiStepLR调度器, 它允许在指定的多个轮次进行学习率衰减
-            scheduler = lr_scheduler.MultiStepLR(
+            scheduler = pt_lr_scheduler.MultiStepLR(
                 optimizer, # 传入优化器
                 milestones=cfg.lr_config['step'],
                 gamma=cfg.lr_config.get('gamma', 0.1) # 每次衰减乘以的因子，默认为0.1
@@ -110,7 +113,7 @@ def main():
             print(f"✅ LR MultiStepLR scheduler built successfully with milestones={cfg.lr_config['step']} and gamma={cfg.lr_config.get('gamma', 0.1)}.")
 
         elif policy == 'CosineAnnealing':
-            scheduler = lr_scheduler.CosineAnnealingLR(
+            scheduler = pt_lr_scheduler.CosineAnnealingLR(
                 optimizer, # 需要传入你的优化器
                 # T_max: 余弦周期的1/4，通常设置为总轮数减去预热轮数，
                 #        这样在预热结束后开始衰减，并在训练结束时达到最低点
@@ -139,7 +142,7 @@ def main():
         metric=metric,
         train_loader=train_loader,
         val_loader=val_loader,
-        lr_scheduler=lr_scheduler,
+        lr_scheduler=scheduler,
         hooks=hooks,
         cfg=cfg
     )

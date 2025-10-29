@@ -41,6 +41,8 @@ class TrackNetV2Loss(nn.Module):
         # prob:
         prob = logits
 
+        
+
         # 2. 将targets的Gt图灰度值大于0的都设为正样本
         y = torch.where(targets > 0, 1.0, 0.0)
 
@@ -51,12 +53,12 @@ class TrackNetV2Loss(nn.Module):
         neg_weight = prob.pow(2)
 
         # 4. 计算标准 BCE 损失的 Log 部分
-        eps = 1e-8
+        eps = 1e-6
         # prob 限制在[eps，1-eps]
         prob = torch.clamp(prob, eps, 1.0 - eps)
         weight_bce_loss = -(
-            pos_weight * y * torch.log(prob) +
-            neg_weight * (1.0 - y) * torch.log((1.0 - prob))
+            pos_weight * y * torch.log(prob + eps) +
+            neg_weight * (1.0 - y) * torch.log((1.0 - prob + eps))
         )
 
         # 5. 检查是否有NaN值

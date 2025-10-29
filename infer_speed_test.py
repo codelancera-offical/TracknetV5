@@ -5,18 +5,17 @@ from models_factory.builder import build_model
 
 # --- 1. “厨房重地”: 辅助函数和配置 ---
 model_cfg = dict(
-    type='UTrackNetV1',
+    type='TrackNetV2LRMVDR',
     backbone=dict(
-        type='UTrackNetV1DWSBackbone',
-        # Attention流水线输出13个通道
+        type='TrackNetV2LRMVDRBackbone',
         in_channels=13
     ),
     neck=dict(
-        type='UTrackNetV1DWSNeck'
+        type='TrackNetV2Neck'
     ),
     head=dict(
-        type='UTrackNetV1DWSHeadSigmoid',
-        in_channels=16,
+        type='TrackNetV2MVDRTSATTHead',
+        in_channels=64,
         out_channels=3
     )
 )
@@ -26,7 +25,7 @@ if not torch.cuda.is_available():
     print("警告：没有检测到CUDA，测试将在CPU上进行，结果可能不准确。")
 
 BATCH_SIZE = 2
-CHANNELS = 13
+CHANNELS = 9
 HEIGHT = 288
 WIDTH = 512
 
