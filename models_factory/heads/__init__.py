@@ -9,6 +9,7 @@ from .tracknetv4_head import TrackNetV4Head
 from .tracknetv2_learnable_mvdr_head import TrackNetV2LRMVDRHead
 from .tracknetv2_ts_attention_head import TrackNetV2TSATTHead
 from .tracknetv2_mvdr_ts_attention_head import TrackNetV2MVDRTSATTHead
+from .tracknetv2_mvdr_ts_attention_head_before import TrackNetV2MVDRTSATTHeadBefore
 
 __all__ = [
     'UTrackNetV1Head',

@@ -23,7 +23,7 @@ class ConvBlock(nn.Module):
                 padding = (k - 1) // 2
             ),
             nn.BatchNorm2d(out_channels), # 你可以根据需要添加
-            nn.Sigmoid(),      # 你可以根据需要添加
+            # nn.Sigmoid(),      # 你可以根据需要添加
         )
 
     def forward(self, x):
@@ -46,7 +46,7 @@ class FusionLayerTypeA(nn.Module):
 # 2. 你的时空注意力头 (Spatio-Temporal Attention Head)
 # -----------------------------------------------------------------
 @HEADS.register_module
-class TrackNetV2MVDRTSATTHead(nn.Module):
+class TrackNetV2MVDRTSATTHeadBefore(nn.Module):
     """
     时空注意力头 (TrackNetV2TSATTHead) - 【残差精修版】
     
@@ -78,6 +78,8 @@ class TrackNetV2MVDRTSATTHead(nn.Module):
         super().__init__()
 
         self.fusion_layer = FusionLayerTypeA()
+
+        self.sigmoid = nn.Sigmoid()
         
         self.patch_size = patch_size
         self.embed_dim = embed_dim
@@ -139,9 +141,11 @@ class TrackNetV2MVDRTSATTHead(nn.Module):
         
         # 1. 生成“草稿”预测 (无Sigmoid)
         # 【重要】: 这是我们的残差连接的来源
-        draft_heatmaps = self.conv1(x)  # [B, 3, 288, 512]
+        draft_heatmaps = self.conv1(x)  # [B, 3, 288, 512], 使用了conv+bn, 还没sigmoid
 
         draft_heatmaps = self.fusion_layer([draft_heatmaps, residual_maps]) # 运动注意力融合
+
+        draft_heatmaps = self.sigmoid(draft_heatmaps) # 这里再使用sigmoid
         
         # 保存 Batch_size 和 H, W 供后续使用
         B, C, H, W = draft_heatmaps.shape

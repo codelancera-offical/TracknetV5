@@ -40,7 +40,7 @@ def main():
     # args = parser.parse_args()
     #
     # cfg = load_config_from_path(args.config)
-    cfg = load_config_from_path('./configs/experiments/tracknetv2_lrmvdr-ts-attention-scheduler_tennis_b2e500.py')
+    cfg = load_config_from_path('./configs/experiments/tracknetv2_lrmvdr-ts-attention-before-scheduler_tennis_b2e500.py')
     print("✅ Configuration loaded successfully.")
     
     # --- B. 环境设置 (由 Runner 内部处理或在这里设置) ---
