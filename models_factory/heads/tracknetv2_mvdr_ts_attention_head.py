@@ -73,9 +73,11 @@ class TrackNetV2MVDRTSATTHead(nn.Module):
                  patch_size=16,        # 分块大小
                  embed_dim=128,        # Transformer的工维度
                  num_transformer_layers=4, # Transformer层数
-                 num_transformer_heads=8   # Transformer多头注意力的头数
+                 num_transformer_heads=8,   # Transformer多头注意力的头数
+                 IsDraft=False # 是否需要返回草稿
                 ):
         super().__init__()
+        self.IsDraft = IsDraft
 
         self.fusion_layer = FusionLayerTypeA()
         
@@ -218,5 +220,7 @@ class TrackNetV2MVDRTSATTHead(nn.Module):
         
         # 在相加之后，再进行 Sigmoid 激活
         final_output = self.final_sigmoid(final_output_before_sigmoid)
-
-        return final_output
+        if self.IsDraft:
+            return final_output, draft_heatmaps
+        else:
+            return final_output
