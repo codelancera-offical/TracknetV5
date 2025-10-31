@@ -6,6 +6,7 @@ from .tracknetv2 import TrackNetV2
 from .tracknetv4 import TrackNetV4
 from .tracknetv2_learnable_mvdr import TrackNetV2LRMVDR
 from .tracknetv2_mvdr import TrackNetV2MVDR
+from .tracknetv5 import TrackNetV5
 
 __all__ = [
     'UTrackNetV1',
