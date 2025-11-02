@@ -54,7 +54,6 @@ class R_STRHead(nn.Module):
             out_channels,
             kernel_size=1, # <--- 最佳实践: 1x1 
             padding=0,     # <--- 1x1 卷积不需要 padding
-            bias=True      # <--- 移除BN后, 推荐使用 bias
         )
         
         # -----------------------------------------------------------------
