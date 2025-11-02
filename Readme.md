@@ -2,6 +2,9 @@
 
 推理命令：
 
+- videos_dir_path 存放要推理的所有视频
+- weight_path 指定权重路径
+
 ```
-python .\utracknetv1_mvat_wbce_inference_contour_method.py <视频文件夹路径>  <权重路径>
+python run_inference.py <videos_dir_path> <weight_path>
 ```
