@@ -3,6 +3,7 @@ import torch
 from ..builder import MODELS, build_backbone, build_neck, build_head
 from ..basic import MDD
 
+@MODELS.register_module
 class TrackNetV5(nn.Module):
     def __init__(self, backbone, neck, head):
         super().__init__()

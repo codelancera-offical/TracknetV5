@@ -1,6 +1,4 @@
-from .utracknetv1 import UTrackNetV1
 from .tracknetv3 import TrackNetV3
-from .inpaintnet import InpaintNet
 from .tracknetv1 import TrackNetV1
 from .tracknetv2 import TrackNetV2
 from .tracknetv4 import TrackNetV4
@@ -15,5 +13,6 @@ __all__ = [
     'TrackNetV2',
     'TrackNetV4',
     'TrackNetV2LRMVDR',
-    'TrackNetV2MVDR'
+    'TrackNetV2MVDR',
+    'TrackNetV5'
 ]
