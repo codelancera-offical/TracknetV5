@@ -51,6 +51,8 @@ class Runner:
         self.model.train()
         progress_bar = tqdm(self.train_loader, total=self.max_iters_per_epoch, 
                             desc=f"Train Epoch {self.epoch + 1}/{self.max_epochs}")
+
+        base_lr = self.optimizer.param_groups[0]['lr']
                             
         for i, data_batch in enumerate(progress_bar):
             if i >= self.max_iters_per_epoch:
@@ -66,6 +68,52 @@ class Runner:
             logits = self.model(inputs)
             loss = self.criterion(logits, targets)
             loss.backward()
+
+            # ✨✨✨ 【【【 紧急添加：手动 Warmup 逻辑 】】】 ✨✨✨
+            # 1. 检查配置中是否启用了 Warmup
+            warmup_enabled = hasattr(self.cfg, 'lr_config') and \
+                             self.cfg.lr_config is not None and \
+                             self.cfg.lr_config.get('warmup') == 'linear'
+                             
+            if warmup_enabled:
+                # 2. 从配置获取 Warmup 参数
+                warmup_iters = self.cfg.lr_config.get('warmup_iters', 0) # 总 Warmup 迭代次数
+                warmup_ratio = self.cfg.lr_config.get('warmup_ratio', 1e-6) # 初始 LR 比例
+                
+                # 3. 检查当前是否处于 Warmup 阶段
+                if self.global_iter < warmup_iters:
+                    # 4. 计算当前的 Warmup 学习率
+                    #    k 是一个从 warmup_ratio 线性增长到 1.0 的因子
+                    k = (1 - warmup_ratio) * self.global_iter / warmup_iters + warmup_ratio
+                    current_warmup_lr = base_lr * k
+                    
+                    # 5. 手动设置优化器中所有参数组的学习率
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = current_warmup_lr
+                
+                # 6. (可选) Warmup 结束时，确保恢复到基础学习率
+                elif self.global_iter == warmup_iters:
+                     for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = base_lr # 恢复基础 LR，防止浮点误差
+            # ✨✨✨ 【【【 Warmup 逻辑结束 】】】 ✨✨✨
+
+            # ✨✨✨ 【【【 紧急添加：手动梯度裁剪 】】】 ✨✨✨
+            # 1. 检查配置文件中是否存在 optimizer_config 和 grad_clip 设置
+            if hasattr(self.cfg, 'optimizer_config') and \
+               self.cfg.optimizer_config is not None and \
+               'grad_clip' in self.cfg.optimizer_config and \
+               self.cfg.optimizer_config['grad_clip'] is not None:
+                
+                # 2. 从配置中获取 max_norm 值
+                max_norm = self.cfg.optimizer_config['grad_clip'].get('max_norm')
+                
+                # 3. 如果 max_norm 有效，则执行梯度裁剪
+                if max_norm is not None and max_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=max_norm)
+                    # (可选) 可以在这里加一行 print 确认裁剪已执行
+                    # print(f"  -- Grad clipped with max_norm={max_norm}")
+            # ✨✨✨ 【【【 梯度裁剪代码结束 】】】 ✨✨✨
+
             self.optimizer.step()
             
             self.global_iter += 1
@@ -104,14 +152,14 @@ class Runner:
             # 计算损失和指标
             loss = self.criterion(logits, targets)
             val_losses.append(loss.item())
-            self.metric.update(logits, data_batch)
+            self.metric.update(logits, data_batch) # metric传入的是logits和对应的batch，算出是tp还是啥别的
             
             # 3. 新增：广播“验证iter结束”事件
             # 这是 ValidationVisualizerHook 工作的关键！
             self.call_hooks('after_val_iter')
 
         # 计算并打印最终结果
-        eval_results = self.metric.compute()
+        eval_results = self.metric.compute() # 这里才算出来F1
         eval_results['loss'] = np.mean(val_losses)
         self.outputs['val_metrics'] = eval_results 
         print(f"Validation Results: {eval_results}")

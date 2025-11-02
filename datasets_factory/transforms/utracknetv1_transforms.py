@@ -21,10 +21,10 @@ class LoadMultiImagesFromPaths:
             if not isinstance(img_path, Path) or not img_path.exists():
                  raise FileNotFoundError(f"Image file not found at path: {img_path} for key: {key}")
             
-            img = cv2.imread(str(img_path))
+            img = cv2.imread(str(img_path)) # 把图片读进来，BGR转RGB
             if self.to_rgb:
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            results[key] = img
+            results[key] = img # 原本存字符串（图片路径）的，现在直接直接存读出来的img，后传给resize
         return results
 
 @TRANSFORMS.register_module
@@ -38,7 +38,7 @@ class Resize:
     def __call__(self, results: dict) -> dict:
         for key in self.keys:
             if key in results:
-                results[key] = cv2.resize(results[key], self.size_wh)
+                results[key] = cv2.resize(results[key], self.size_wh) # 调整到模型需要的输入尺寸
         return results
 
 @TRANSFORMS.register_module
@@ -71,12 +71,12 @@ class GenerateMotionAttention:
 class ConcatChannels:
     """按指定顺序拼接通道，形成最终的模型输入。"""
     def __init__(self, keys, output_key='image'):
-        self.keys = keys
-        self.output_key = output_key
+        self.keys = keys # 这里是按顺序排列的，需要concatenate的keys
+        self.output_key = output_key # 用一个'image' 存放concatenate之后的输入
 
     def __call__(self, results: dict) -> dict:
-        imgs_to_stack = [results[key] for key in self.keys]
-        results[self.output_key] = np.concatenate(imgs_to_stack, axis=2)
+        imgs_to_stack = [results[key] for key in self.keys] # 先stack起来 [360, 640, 9] x n, [H, W, C]是cv2的读取格式
+        results[self.output_key] = np.concatenate(imgs_to_stack, axis=2) # 然后沿着通道维度拼接
         return results
 
 @TRANSFORMS.register_module
@@ -89,10 +89,34 @@ class LoadAndFormatTarget:
     def __call__(self, results: dict) -> dict:
         gt_path = results[self.key]
         size = (results['input_width'], results['input_height'])
-        target_np = cv2.imread(str(gt_path), cv2.IMREAD_GRAYSCALE)
-        target_np = cv2.resize(target_np, size, interpolation=cv2.INTER_NEAREST)
-        results[self.output_key] = torch.from_numpy(target_np.astype(np.int64))
+        target_np = cv2.imread(str(gt_path), cv2.IMREAD_GRAYSCALE) # 以灰度图读取
+        target_np = cv2.resize(target_np, size, interpolation=cv2.INTER_NEAREST) # 插值缩放尺寸
+        results[self.output_key] = torch.from_numpy(target_np.astype(np.int64)) # 以'target'存入results
         return results
+
+@TRANSFORMS.register_module
+class LoadAndFormatMultiTargets:
+    """加载、缩放并格式化多张GT热力图为Tensor，维度为[3, h, w]。"""
+
+    def __init__(self, keys=['gt_path_prev', 'gt_path', 'gt_path_next'], output_key='target'):
+        self.keys = keys
+        self.output_key = output_key
+
+    def __call__(self, results: dict) -> dict:
+        targets = []
+        size = (results['input_width'], results['input_height'])
+
+        for key in self.keys:
+            gt_path = results[key]
+            target_np = cv2.imread(str(gt_path), cv2.IMREAD_GRAYSCALE)
+            target_np = cv2.resize(target_np, size, interpolation=cv2.INTER_NEAREST)
+            targets.append(target_np)
+
+        # 堆叠成 [3, H, W] 维度
+        target_stack = np.stack(targets, axis=0)  # 形状: (3, H, W)
+        results[self.output_key] = torch.from_numpy(target_stack.astype(np.float32))
+        return results
+
 
 @TRANSFORMS.register_module
 class Finalize:
@@ -106,7 +130,7 @@ class Finalize:
     def __call__(self, results: dict) -> dict:
         # 将最终的输入图像转为 PyTorch 需要的 (C, H, W) 格式 Tensor
         img = results[self.image_key]
-        results[self.image_key] = torch.from_numpy(img.transpose(2, 0, 1)).float().div(255) # <-- 修正这里
+        results[self.image_key] = torch.from_numpy(img.transpose(2, 0, 1)).float().div(255) # 转成需要的pytorch需要的维度格式[C,H,W], 数据格式0-1之间
         
         # 从“周转箱”中只挑选出模型训练/评估需要的最终数据
         final_data = {}

@@ -1,9 +1,13 @@
 import argparse
 import torch
 torch.backends.cudnn.benchmark = True
+# from torch.optim import lr_scheduler
+import torch.optim.lr_scheduler as pt_lr_scheduler
 from torch.utils.data import DataLoader
 import importlib.util
 from pathlib import Path
+
+# torch.autograd.set_detect_anomaly(True)
 
 # --- 1. 导入我们所有的“工厂”的建造函数 ---
 # 导入顶层包，对应的 __init__.py 文件会确保所有模块都已注册
@@ -36,7 +40,7 @@ def main():
     # args = parser.parse_args()
     #
     # cfg = load_config_from_path(args.config)
-    cfg = load_config_from_path('configs/experiments/utracknetv1_dws_mvat_tennis_b2e500_wbce.py')
+    cfg = load_config_from_path('./configs/experiments/tracknetv5_r-str-tennis_b2e500.py')
     print("✅ Configuration loaded successfully.")
     
     # --- B. 环境设置 (由 Runner 内部处理或在这里设置) ---
@@ -93,17 +97,42 @@ def main():
     print("✅ All Hooks built successfully.")
 
     # 构建学习率调度器 (增加一个判断，使其成为可选项)
+    scheduler = None
     if hasattr(cfg, 'lr_config') and cfg.lr_config is not None:
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer,
-            step_size=cfg.lr_config['step'][0],
-            gamma=cfg.lr_config.get('gamma', 0.1)
-        )
-        print("✅ LR scheduler built successfully.")
+        policy = cfg.lr_config.get('policy', None)
+
+        if policy == 'Step':
+            if 'step' not in cfg.lr_config:
+                raise ValueError("Step policy requires 'step'(list of milestones in lr_config")
+            # 使用Pytorch的MultiStepLR调度器, 它允许在指定的多个轮次进行学习率衰减
+            scheduler = pt_lr_scheduler.MultiStepLR(
+                optimizer, # 传入优化器
+                milestones=cfg.lr_config['step'],
+                gamma=cfg.lr_config.get('gamma', 0.1) # 每次衰减乘以的因子，默认为0.1
+            )
+            print(f"✅ LR MultiStepLR scheduler built successfully with milestones={cfg.lr_config['step']} and gamma={cfg.lr_config.get('gamma', 0.1)}.")
+
+        elif policy == 'CosineAnnealing':
+            scheduler = pt_lr_scheduler.CosineAnnealingLR(
+                optimizer, # 需要传入你的优化器
+                # T_max: 余弦周期的1/4，通常设置为总轮数减去预热轮数，
+                #        这样在预热结束后开始衰减，并在训练结束时达到最低点
+                T_max=cfg.total_epochs - cfg.lr_config.get('warmup_iters', 0),
+                # eta_min: 学习率的最小值，默认为 0
+                eta_min=cfg.lr_config.get('min_lr', 0)
+             )
+            print(f"✅ LR CosineAnnealingLR scheduler built successfully.")
+        else:
+            # 3.4 如果 policy 不是 'Step' 或 'CosineAnnealing'，或者为 None
+            #     打印警告信息，告知用户将使用固定学习率
+            print(f"⚠️ LR policy '{policy}' is not supported yet or is None. Running with a fixed learning rate or optimizer's default.")
+            scheduler = None # 确保不支持的策略不会创建调度器，保持为 None
     else:
-        lr_scheduler = None # 如果没有配置，则为 None
+        # 5. 如果配置文件中根本没有定义 'lr_config'
+        scheduler = None # 保持 scheduler 为 None
         print("ℹ️ No LR scheduler configured. Running with a fixed learning rate.")
-    
+
+
     # --- D. 实例化“赛车手”(Runner) ---
     # 将所有构建好的组件“装备”给Runner
     runner = Runner(
@@ -113,9 +142,10 @@ def main():
         metric=metric,
         train_loader=train_loader,
         val_loader=val_loader,
-        lr_scheduler=lr_scheduler,
+        lr_scheduler=scheduler,
         hooks=hooks,
-        cfg=cfg
+        cfg=cfg,
+        # IsAMP=True
     )
     
     # --- E. 启动训练！---
