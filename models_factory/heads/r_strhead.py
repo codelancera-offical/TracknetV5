@@ -29,9 +29,9 @@ class R_STRHead(nn.Module):
                  out_channels=3,      # 最终输出通道 (t-1, t, t+1)
                  img_size=(288, 512),   # "草稿"热力图的尺寸 (H, W)
                  patch_size=16,       # 分块大小
-                 embed_dim=128,       # Transformer的工维度
+                 embed_dim=256,       # Transformer的工维度
                  num_transformer_layers=4, # Transformer层数
-                 num_transformer_heads=8,  # Transformer多头注意力的头数
+                 num_transformer_heads=1,  # Transformer多头注意力的头数
                  IsDraft=False # 是否需要返回草稿
                 ):
         super().__init__()

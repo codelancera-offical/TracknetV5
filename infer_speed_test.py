@@ -5,16 +5,16 @@ from models_factory.builder import build_model
 
 # --- 1. “厨房重地”: 辅助函数和配置 ---
 model_cfg = dict(
-    type='TrackNetV2LRMVDR',
+    type='TrackNetV5',
     backbone=dict(
-        type='TrackNetV2LRMVDRBackbone',
+        type='TrackNetV2Backbone', # OK
         in_channels=13
     ),
     neck=dict(
-        type='TrackNetV2Neck'
+        type='TrackNetV2Neck'# OK
     ),
-    head=dict(
-        type='TrackNetV2MVDRTSATTHead',
+    head=dict( 
+        type='R_STRHead',
         in_channels=64,
         out_channels=3
     )

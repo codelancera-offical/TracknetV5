@@ -3,19 +3,18 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV2LRMVDR',
+    type='TrackNetV3',
     backbone=dict(
-        type='TrackNetV2LRMVDRBackbone',
-        in_channels=13
+        type='TrackNetV3Backbone',
+        in_channels=9
     ),
     neck=dict(
-        type='TrackNetV2Neck'
+        type='TrackNetV3Neck'
     ),
     head=dict(
-        type='TrackNetV2MVDRTSATTHead',
+        type='TrackNetV3Head',
         in_channels=64,
-        out_channels=3,
-        IsDraft=True
+        out_channels=3
     )
 )
 

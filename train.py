@@ -64,14 +64,16 @@ def main():
         batch_size=cfg.data['samples_per_gpu'],
         num_workers=cfg.data['workers_per_gpu'],
         shuffle=True,
-        pin_memory=True
+        pin_memory=True,
+        persistent_workers=True # <--- ✨✨✨ 添加这一行
     )
     val_loader = DataLoader(
         dataset=val_dataset,
         batch_size=cfg.data['samples_per_gpu'],
         num_workers=cfg.data['workers_per_gpu'],
         shuffle=False,
-        pin_memory=True
+        pin_memory=True,
+        persistent_workers=True # <--- ✨✨✨ 添加这一行
     )
     print("✅ DataLoaders built successfully.")
 

@@ -66,7 +66,7 @@ class TrackNetV2Metric:
 
     def reset(self):
         """清空计分板。"""
-        self.tp, self.fp, self.tn, self.fn = 0, 0, 0, 0
+        self.tp, self.fp1, self.fp2, self.fp, self.tn, self.fn = 0, 0, 0, 0, 0, 0
 
     def update(self, logits: torch.Tensor, batch: dict):
         """根据一个批次的数据，更新计分板。"""
@@ -94,9 +94,9 @@ class TrackNetV2Metric:
                         if dist < self.min_dist:
                             self.tp += 1
                         else:
-                            self.fn += 1
+                            self.fp1 += 1
                     else:
-                        self.fp += 1
+                        self.fp2 += 1
                 else:
                     if vis != 0:
                         self.fn += 1
@@ -106,11 +106,22 @@ class TrackNetV2Metric:
     def compute(self) -> dict:
         """计算并返回最终的评估结果字典。"""
         eps = 1e-15
+        self.fp = self.fp1 + self.fp2
+        total = self.tp + self.fp + self.tn + self.fn
+        accuracy = (self.tp + self.tn) / (total + eps)
         precision = self.tp / (self.tp + self.fp + eps)
         recall = self.tp / (self.tp + self.fn + eps)
         f1 = 2 * precision * recall / (precision + recall + eps)
 
         return {
+            'Total': total,
+            'TP': self.tp,
+            'FP1': self.fp1,
+            'FP2': self.fp2,
+            'FP': self.fp,
+            'TN': self.tn,
+            'FN': self.fn,
+            'Accuracy': accuracy,
             'Precision': precision,
             'Recall': recall,
             'F1-Score': f1

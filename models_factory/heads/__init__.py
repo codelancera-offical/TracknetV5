@@ -22,5 +22,6 @@ __all__ = [
     'TrackNetV2TSATTHead',
     'TrackNetV2MVDRTSATTHead',
     'R_STRHead',
-    'R_STRHeadFS'
+    'R_STRHeadFS',
+    'R_STRHeadImprove'
 ]
