@@ -5,6 +5,7 @@ from numpy.ma.core import argmax
 
 from ..builder import LOSSES
 
+
 @LOSSES.register_module
 class TrackNetV2Loss(nn.Module):
     """
@@ -15,6 +16,7 @@ class TrackNetV2Loss(nn.Module):
         公式: -sum [ (1-P)^2 * Y * log(P) + P^2 * (1-Y) * log(1-P) ]
         其中 P = sigmoid(logits)
     """
+
     def __init__(self, reduction="mean"):
         super().__init__()
         self.reduction = reduction
@@ -30,7 +32,7 @@ class TrackNetV2Loss(nn.Module):
 
                targets (torch.Tensor):
                    真实的灰度标签图 (Ground Truth Grayscale Map)。
-                   期望形状: [B, 3, H, W]，其中每个像素的值是灰度值[0,255]
+                   期望形状: [B, 3, H, W]，其中每个像素的值是0或255
                    期望数据类型: torch.long (int64)。
 
            返回:
@@ -41,10 +43,8 @@ class TrackNetV2Loss(nn.Module):
         # prob:
         prob = logits
 
-        
-
         # 2. 将targets的Gt图灰度值大于0的都设为正样本
-        y = torch.where(targets > 0, 1.0, 0.0)
+        y = torch.where(targets == 255, 1.0, 0.0)
 
         # 3. 计算权重（基于预测概率）
         # 对于正样本：权重 = (1 - prob)^2
@@ -57,8 +57,8 @@ class TrackNetV2Loss(nn.Module):
         # prob 限制在[eps，1-eps]
         prob = torch.clamp(prob, eps, 1.0 - eps)
         weight_bce_loss = -(
-            pos_weight * y * torch.log(prob + eps) +
-            neg_weight * (1.0 - y) * torch.log((1.0 - prob + eps))
+                pos_weight * y * torch.log(prob + eps) +
+                neg_weight * (1.0 - y) * torch.log((1.0 - prob + eps))
         )
 
         # 5. 检查是否有NaN值
