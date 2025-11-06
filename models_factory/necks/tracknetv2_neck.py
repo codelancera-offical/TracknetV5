@@ -59,7 +59,7 @@ if __name__ == "__main__":
     print(f"使用的设备: {device}")
 
     # 2. 初始化 Neck 网络
-    model = UTrackNetV2Neck().to(device)
+    model = TrackNetV2Neck().to(device)
     model.eval()
 
     # 3. 创建模拟的输入特征字典 (Mock Input Features)
