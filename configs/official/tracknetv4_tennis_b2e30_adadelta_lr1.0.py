@@ -3,16 +3,16 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV2',
+    type='TrackNetV4',
     backbone=dict(
-        type='TrackNetV2Backbone',
+        type='TrackNetV4Backbone',
         in_channels=9
     ),
     neck=dict(
-        type='TrackNetV2Neck'
+        type='TrackNetV4Neck'
     ),
     head=dict(
-        type='TrackNetV2Head',
+        type='TrackNetV4Head',
         in_channels=64,
         out_channels=3
     )
@@ -21,9 +21,9 @@ model = dict(
 # ------------------- 2. 数据定义 (Data) -------------------
 # --- 2.1 通用参数 ---
 input_size = (288, 512)  # (height, width)
-original_size = (1080, 1920) # 原图片大小(height, width)
+original_size = (720, 1280) # 原图片大小(height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = './data/tracknet-data2'
+data_root = './data/'
 
 # --- 2.2 数据处理流水线定义 ---
 pipeline = [
@@ -77,7 +77,7 @@ optimizer = dict(type='Adadelta', lr=1.0)
 
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
-    interval=5,
+    interval=1,
     metric=dict(
         type='TrackNetV2Metric',
         min_dist=10,
@@ -86,14 +86,11 @@ evaluation = dict(
 )
 
 # ------------------- 6. 运行时定义 (Runtime) -------------------
-total_epochs = 500
+total_epochs = 30
 work_dir = f'./work_dirs/{Path(__file__).stem}'
 
-# ✨ 修正三：根据您的要求，添加每轮最大迭代次数
-steps_per_epoch = 200
-
 log_config = dict(
-    interval=50,
+    interval=100,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(type='TensorboardLoggerHook')
@@ -101,7 +98,7 @@ log_config = dict(
 )
 
 custom_hooks = [
-    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=10, original_size=original_size)
+    dict(type='ValidationVisualizerV2Hook', num_samples_to_save=100, original_size=original_size)
 ]
 
 seed = 42
