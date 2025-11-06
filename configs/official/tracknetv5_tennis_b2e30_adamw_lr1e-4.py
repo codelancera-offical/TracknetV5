@@ -96,7 +96,7 @@ evaluation = dict(
     interval=1,
     metric=dict(
         type='TrackNetV2Metric',
-        min_dist=10,
+        min_dist=4,
         original_size=original_size
     )
 )
