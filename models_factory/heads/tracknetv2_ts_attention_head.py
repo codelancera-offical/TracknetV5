@@ -60,7 +60,7 @@ class TrackNetV2TSATTHead(nn.Module):
                  patch_size=16,        # 分块大小
                  embed_dim=128,        # Transformer的工维度
                  num_transformer_layers=4, # Transformer层数
-                 num_transformer_heads=8   # Transformer多头注意力的头数
+                 num_transformer_heads=1   # Transformer多头注意力的头数
                 ):
         super().__init__()
         
@@ -109,11 +109,13 @@ class TrackNetV2TSATTHead(nn.Module):
         
         # 2.4 解码器 (Decoder) - 将Token还原回 "修正热力图"
         # 这是一个简单的 "Patch Upsampling" 解码器
-        self.decoder_head = nn.ConvTranspose2d(
-            in_channels=embed_dim, 
-            out_channels=1,        # 每次还原1个通道
-            kernel_size=patch_size, 
-            stride=patch_size
+        self.decoder_head = nn.Sequential(
+            nn.Conv2d(
+                in_channels=embed_dim, 
+                out_channels=1 * (patch_size ** 2), # 1个输出通道 * (放大倍数^2)
+                kernel_size=1 # 1x1 卷积效率最高
+            ),
+            nn.PixelShuffle(patch_size) # 智能上采样
         )
         
         # 3. 最终的激活函数

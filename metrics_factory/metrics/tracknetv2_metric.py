@@ -88,8 +88,12 @@ class TrackNetV2Metric:
 
                 if x_pred is not None:
                     if vis != 0:
-                        x_gt_scaled = int(x_gt * scale_w)
-                        y_gt_scaled = int(y_gt * scale_h)
+                        try:
+                            x_gt_scaled = int(x_gt * scale_w)
+                            y_gt_scaled = int(y_gt * scale_h)
+                        except:
+                            self.fp2 += 1
+                            continue
                         dist = distance.euclidean((x_pred, y_pred), (x_gt_scaled, y_gt_scaled))
                         if dist < self.min_dist:
                             self.tp += 1
