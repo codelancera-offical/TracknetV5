@@ -5,6 +5,8 @@ from .tracknetv4 import TrackNetV4
 from .tracknetv2_learnable_mvdr import TrackNetV2LRMVDR
 from .tracknetv2_mvdr import TrackNetV2MVDR
 from .tracknetv5 import TrackNetV5
+from .tracknetv2_mdd import TrackNetV2MDD
+from .tracknetv5_new import TrackNetV5New
 
 __all__ = [
     'UTrackNetV1',
@@ -14,5 +16,7 @@ __all__ = [
     'TrackNetV4',
     'TrackNetV2LRMVDR',
     'TrackNetV2MVDR',
-    'TrackNetV5'
+    'TrackNetV5',
+    'TrackNetV2MDD',
+    'TrackNetV5New'
 ]
