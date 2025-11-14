@@ -11,7 +11,7 @@ class FusionLayerTypeA(nn.Module):
         feature_map, attention_map = inputs
         output_1 = feature_map[:, 0, :, :] # 啥都不干
         output_2 = feature_map[:, 1, :, :] * attention_map[:, 0, :, :] # 只乘变亮通道
-        output_3 = feature_map[:, 2, :, :] * attention_map[:, 3, :, :] # 只乘变亮通道
+        output_3 = feature_map[:, 2, :, :] * attention_map[:, 2, :, :] # 只乘变亮通道
 
         return torch.stack([output_1, output_2, output_3], dim=1)
 
