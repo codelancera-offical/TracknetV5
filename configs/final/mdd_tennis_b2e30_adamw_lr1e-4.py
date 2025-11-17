@@ -3,27 +3,27 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV4',
+    type='TrackNetV2LRMVDR',
     backbone=dict(
-        type='TrackNetV4Backbone',
-        in_channels=9
+        type='TrackNetV2LRMVDRBackbone',
+        in_channels=13
     ),
     neck=dict(
-        type='TrackNetV4Neck'
+        type='TrackNetV2Neck'
     ),
     head=dict(
-        type='TrackNetV4Head',
+        type='TrackNetV2LRMVDRHead',
         in_channels=64,
         out_channels=3
     )
 )
 
 # ------------------- 2. 数据定义 (Data) -------------------
-# --- 2.1 通用参数 --
+# --- 2.1 通用参数 ---
 input_size = (288, 512)  # (height, width)
-original_size = (1080, 1920) # 原图片大小(height, width)
+original_size = (720, 1280) # 原图片大小(height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = './data/loveall_tennis'
+data_root = './data/tennis_v5_heatmap'
 
 # --- 2.2 数据处理流水线定义 ---
 pipeline = [
@@ -69,7 +69,6 @@ loss = dict(
     type='TrackNetV2Loss'
 )
 
-
 # ------------------- 4. 优化策略定义 (Optimization) -------------------
 optimizer = dict(type='AdamW', lr=1e-4)
 
@@ -87,11 +86,10 @@ lr_config = dict(
     # warmup_iters=50*200,          # 预热轮数（前 50 个 epoch）
     # warmup_ratio=1e-6,        # 初始学习率 (从接近 0 开始预热)
     # 学习率衰减步长 (epoch)
-    step=[20, 25],          # 在第 20 轮和第 25 轮结束时触发衰减
+    step=[20, 25],          # 在第 300 轮和第 400 轮结束时触发衰减
     # 衰减因子
     gamma=0.1                 # 每次衰减时，学习率乘以 0.1
 )
-
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
     interval=1,
@@ -106,8 +104,6 @@ evaluation = dict(
 total_epochs = 30
 work_dir = f'./work_dirs/{Path(__file__).stem}'
 
-# ✨ 修正三：根据您的要求，添加每轮最大迭代次数
-# steps_per_epoch = 200
 
 log_config = dict(
     interval=100,
