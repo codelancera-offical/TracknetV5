@@ -9,9 +9,9 @@ class FusionLayerTypeA(nn.Module):
 
     def forward(self, inputs):
         feature_map, attention_map = inputs
-        output_1 = feature_map[:, 0, :, :] # 啥都不干
-        output_2 = feature_map[:, 1, :, :] * attention_map[:, 0, :, :] # 只乘变亮通道
-        output_3 = feature_map[:, 2, :, :] * attention_map[:, 2, :, :] # 只乘变亮通道
+        output_1 = feature_map[:, 0, :, :] * attention_map[:, 1, :, :] 
+        output_2 = feature_map[:, 1, :, :] * (attention_map[:, 0, :, :] + attention_map[:, 1, :, :])
+        output_3 = feature_map[:, 2, :, :] * (attention_map[:, 2, :, :] + attention_map[:, 3, :, :])
 
         return torch.stack([output_1, output_2, output_3], dim=1)
 
@@ -29,7 +29,7 @@ class FusionLayerTypeB(nn.Module):
 
 
 @HEADS.register_module
-class TrackNetV2LRMVDRHead(nn.Module):
+class TrackNetV2MDDHead(nn.Module):
     """
     它通过一个1x1卷积将输入特征图的通道数映射到任务所需的类别数。
     """
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     # 2. 初始化 Head 网络
     # 使用我们定义的输入和输出通道数
-    model = TrackNetV2LRMVDRHead(in_channels=in_channels, out_channels=out_channels).to(device)
+    model = TrackNetV2MDDHead(in_channels=in_channels, out_channels=out_channels).to(device)
     model.eval()
 
     # 3. 创建一个模拟的输入张量

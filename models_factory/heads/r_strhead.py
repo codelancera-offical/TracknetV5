@@ -18,7 +18,7 @@ class FusionLayerTypeA(nn.Module):
         feature_map, attention_map = inputs
         output_1 = feature_map[:, 0, :, :] # 啥都不干
         output_2 = feature_map[:, 1, :, :] * attention_map[:, 0, :, :] # 门控 Logit
-        output_3 = feature_map[:, 2, :, :] * attention_map[:, 3, :, :] # 门控 Logit
+        output_3 = feature_map[:, 2, :, :] * attention_map[:, 2, :, :] # 门控 Logit
 
         return torch.stack([output_1, output_2, output_3], dim=1)
 
@@ -29,7 +29,7 @@ class R_STRHead(nn.Module):
                  out_channels=3,      # 最终输出通道 (t-1, t, t+1)
                  img_size=(288, 512),   # "草稿"热力图的尺寸 (H, W)
                  patch_size=16,       # 分块大小
-                 embed_dim=256,       # Transformer的工维度
+                 embed_dim=128,       # Transformer的工维度
                  num_transformer_layers=4, # Transformer层数
                  num_transformer_heads=1,  # Transformer多头注意力的头数
                  IsDraft=False # 是否需要返回草稿

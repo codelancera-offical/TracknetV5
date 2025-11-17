@@ -3,16 +3,16 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV5',
+    type='TrackNetV4',
     backbone=dict(
-        type='TrackNetV2Backbone', # OK
-        in_channels=13
+        type='TrackNetV4Backbone',
+        in_channels=9
     ),
     neck=dict(
-        type='TrackNetV2Neck'# OK
+        type='TrackNetV4Neck'
     ),
-    head=dict( 
-        type='R_STRHead',
+    head=dict(
+        type='TrackNetV4Head',
         in_channels=64,
         out_channels=3
     )
@@ -23,7 +23,7 @@ model = dict(
 input_size = (288, 512)  # (height, width)
 original_size = (720, 1280) # 原图片大小(height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = './data/tennis_v2_heatmap'
+data_root = './data/tennis_v5_heatmap'
 
 # --- 2.2 数据处理流水线定义 ---
 pipeline = [

@@ -3,21 +3,20 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV2MDD',
+    type='TrackNetV2LRMVDR',
     backbone=dict(
-        type='TrackNetV2Backbone',
+        type='TrackNetV2LRMVDRBackbone',
         in_channels=13
     ),
     neck=dict(
         type='TrackNetV2Neck'
     ),
     head=dict(
-        type='TrackNetV2Head',
+        type='TrackNetV2MDDHead',
         in_channels=64,
         out_channels=3
     )
 )
-
 # ------------------- 2. 数据定义 (Data) -------------------
 # --- 2.1 通用参数 ---
 input_size = (288, 512)  # (height, width)

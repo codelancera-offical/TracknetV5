@@ -179,12 +179,12 @@ def main():
     """
     新的主函数：扫描配置、显示菜单并按顺序运行所选实验。
     """
-    config_dir = Path('./configs/ablation_study')
+    config_dir = Path('./configs/')
     
     # 1. 自动扫描 configs/official 下的所有 .py 文件
     print(f"🔍 正在扫描 {config_dir}...")
     # 使用 sorted 确保每次运行的顺序都一样
-    config_paths = sorted([p for p in config_dir.glob('*.py') if p.name != '__init__.py'])
+    config_paths = sorted([p for p in config_dir.glob('**/*.py') if p.name != '__init__.py'])
     
     if not config_paths:
         print(f"❌ 错误: 在 {config_dir} 中未找到任何 .py 配置文件。")

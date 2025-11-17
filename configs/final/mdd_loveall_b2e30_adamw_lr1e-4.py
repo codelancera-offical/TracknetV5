@@ -3,16 +3,16 @@ from pathlib import Path
 
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV5',
+    type='TrackNetV2LRMVDR',
     backbone=dict(
-        type='TrackNetV2Backbone', # OK
+        type='TrackNetV2LRMVDRBackbone',
         in_channels=13
     ),
     neck=dict(
-        type='TrackNetV2Neck'# OK
+        type='TrackNetV2Neck'
     ),
-    head=dict( 
-        type='R_STRHead',
+    head=dict(
+        type='TrackNetV2LRMVDRHead',
         in_channels=64,
         out_channels=3
     )
@@ -23,7 +23,7 @@ model = dict(
 input_size = (288, 512)  # (height, width)
 original_size = (720, 1280) # 原图片大小(height, width)
 # ‼️ 请务必将此路径修改为您自己电脑上的正确路径
-data_root = './data/tennis_v2_heatmap'
+data_root = './data/loveall_tennis_v5_heatmap'
 
 # --- 2.2 数据处理流水线定义 ---
 pipeline = [
@@ -70,11 +70,26 @@ loss = dict(
 )
 
 # ------------------- 4. 优化策略定义 (Optimization) -------------------
-# ✨ 修正一：根据您的要求，更换为 Adadelta 优化器，学习率为 1.0
-optimizer = dict(type='Adadelta', lr=1.0)
+optimizer = dict(type='AdamW', lr=1e-4)
 
-# ✨ 修正二：根据您的要求，移除了学习率调度器 (lr_config)
+# (2) 定义优化器配置：添加梯度裁剪 (防止梯度爆炸)
+optimizer_config = dict(
+    grad_clip=dict(max_norm=1.0)
+)
 
+# (3) 定义学习率配置：Warmup + Step Decay
+lr_config = dict(
+    # 策略：使用 Step Decay
+    policy='Step',
+    # 线性预热：保证 Transformer 稳定启动
+    # warmup='linear',          # 使用线性预热
+    # warmup_iters=50*200,          # 预热轮数（前 50 个 epoch）
+    # warmup_ratio=1e-6,        # 初始学习率 (从接近 0 开始预热)
+    # 学习率衰减步长 (epoch)
+    step=[20, 25],          # 在第 300 轮和第 400 轮结束时触发衰减
+    # 衰减因子
+    gamma=0.1                 # 每次衰减时，学习率乘以 0.1
+)
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
     interval=1,
@@ -88,6 +103,7 @@ evaluation = dict(
 # ------------------- 6. 运行时定义 (Runtime) -------------------
 total_epochs = 30
 work_dir = f'./work_dirs/{Path(__file__).stem}'
+
 
 log_config = dict(
     interval=100,
