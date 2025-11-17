@@ -179,7 +179,7 @@ def main():
     """
     新的主函数：扫描配置、显示菜单并按顺序运行所选实验。
     """
-    config_dir = Path('./configs/')
+    config_dir = Path('./configs/final')
     
     # 1. 自动扫描 configs/official 下的所有 .py 文件
     print(f"🔍 正在扫描 {config_dir}...")
