@@ -16,29 +16,33 @@ from datasets_factory.transforms.utracknetv1_transforms import (
     Resize, ConcatChannels
 )
 
-# --- 1. “厨房重地”: 辅助函数和配置 (这部分不变) ---
-model_cfg = dict(
-    type='TrackNetV5',
-    backbone=dict(
-        type='TrackNetV2Backbone', # OK
-        in_channels=13
+# --- 1. “模型配置库” ---
+MODEL_CONFIGS = {
+    'v2': dict(
+        type='TrackNetV2',
+        backbone=dict(type='TrackNetV2Backbone', in_channels=9),
+        neck=dict(type='TrackNetV2Neck'),
+        head=dict(type='TrackNetV2Head', in_channels=64, out_channels=3)
     ),
-    neck=dict(
-        type='TrackNetV2Neck'# OK
+    'v4': dict(
+        type='TrackNetV4',
+        backbone=dict(type='TrackNetV4Backbone', in_channels=9),
+        neck=dict(type='TrackNetV4Neck'),
+        head=dict(type='TrackNetV4Head', in_channels=64, out_channels=3)
     ),
-    head=dict( 
-        type='R_STRHead',
-        in_channels=64,
-        out_channels=3 # <-- 你提到这现在是 3
+    'v5': dict(
+        type='TrackNetV5',
+        backbone=dict(type='TrackNetV2Backbone', in_channels=13),
+        neck=dict(type='TrackNetV2Neck'),
+        head=dict(type='R_STRHead', in_channels=64, out_channels=3)
     )
-)
+}
 
-
-# --- ✨✨✨ 已修改的辅助函数 ✨✨✨ ---
-def _heatmap_to_coords(heatmap: np.ndarray, threshold: int = 127, min_circularity: float = 0.7):
+# --- 2. 辅助函数 (✨ 已修改，与你的 Metric 脚本对齐) ---
+def _heatmap_to_coords(heatmap: np.ndarray, threshold: int = 127):
     """
-    一个鲁棒的坐标提取函数。
-    它对热力图进行二值化，然后寻找最大且符合圆度要求的轮廓的质心。
+    一个鲁棒的坐标提取函数。(与 Metric 脚本逻辑一致)
+    它对热力图进行二值化，然后寻找最大轮廓的质心作为坐标。
     """
     if heatmap.dtype != np.uint8:
         heatmap = heatmap.astype(np.uint8)
@@ -46,33 +50,16 @@ def _heatmap_to_coords(heatmap: np.ndarray, threshold: int = 127, min_circularit
     _, binary_map = cv2.threshold(heatmap, threshold, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(binary_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    valid_contours = []
     if contours:
-        for c in contours:
-            area = cv2.contourArea(c)
-            # 预先过滤掉非常小的噪点
-            if area < 5: 
-                continue
-            
-            perimeter = cv2.arcLength(c, True)
-            if perimeter == 0:
-                continue
-                
-            # 计算圆度
-            circularity = 4 * math.pi * (area / (perimeter * perimeter))
-            
-            if circularity >= min_circularity:
-                valid_contours.append(c)
-
-    if valid_contours:
-        largest_contour = max(valid_contours, key=cv2.contourArea)
+        # ✨ 关键修改：不再有 for 循环过滤，直接取最大轮廓
+        largest_contour = max(contours, key=cv2.contourArea)
         M = cv2.moments(largest_contour)
         if M["m00"] > 0:
             cx = int(M["m10"] / M["m00"])
             cy = int(M["m01"] / M["m00"])
             return cx, cy
 
-    return None
+    return None # ✨ 返回 None，而不是 (None, None)
 
 
 def draw_comet_tail(frame, points_deque):
@@ -91,11 +78,12 @@ def draw_comet_tail(frame, points_deque):
         cv2.circle(frame, tuple(points_deque[-1]), 5, (0, 0, 255), -1)
     return frame
 
-# --- 2. “核心加工车间”: ✨✨✨ 已重构的 process_video 函数 ✨✨✨ ---
-def process_video(video_path: Path, model, device, args, output_root_dir: Path):
+# --- 3. “核心加工车间”: ✨ process_video (✨ 已修改) ✨ ---
+def process_video(video_path: Path, model, device, args, output_root_dir: Path) -> dict:
     """
     处理单个视频文件，并生成所有需要的输出文件。
     新逻辑：一次读取 3 帧，推理 3 帧，写入 3 帧，然后跳 3 帧。
+    ✨ 新增: 返回一个包含统计数据的字典。
     """
     print(f"\n🏭 Processing video: {video_path.name}")
     
@@ -116,7 +104,6 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path):
     writer_traj = cv2.VideoWriter(str(trajectory_video_path), fourcc, fps, (input_size[1], input_size[0]))
     writer_comp = cv2.VideoWriter(str(comparison_video_path), fourcc, fps, (input_size[1] * 2, input_size[0]))
 
-    # 轨迹点保留不变，它只关心最近的 `fps` 个点
     trajectory_points = deque(maxlen=fps) 
     
     csv_data = []
@@ -144,7 +131,6 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path):
             break
 
         # 2. 准备模型输入
-        # (你提到模型内部处理，我们只需按转换器要求提供3帧)
         frame1_rgb = cv2.cvtColor(frame1, cv2.COLOR_BGR2RGB)
         frame2_rgb = cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB)
         frame3_rgb = cv2.cvtColor(frame3, cv2.COLOR_BGR2RGB)
@@ -153,8 +139,6 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path):
         data_dict = resizer(data_dict)
         data_dict = concatenator(data_dict)
         
-        # 存储调整大小后的帧，用于后续绘图
-        # data_dict['path_prev'] 现在是调整后的 frame1
         resized_frames = [data_dict['path_prev'], data_dict['path'], data_dict['path_next']]
         
         image_np = data_dict['image']
@@ -167,16 +151,23 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path):
         
         # 移除 batch 维度，得到 (3, H, W) 的 NumPy 数组
         heatmaps_np = heatmap_preds.squeeze(0).cpu().numpy()
-        threshold_uint8 = int(args.threshold * 255)
+        threshold_uint8 = int(args.threshold * 255) # 阈值仍然由参数控制
 
         # 4. 循环处理这 3 帧的结果
         for i in range(3):
             current_frame_idx = frame_idx_counter + i
+            # 确保不会因为最后几帧凑不满3帧而出错
+            if current_frame_idx >= total_frames:
+                continue
+
             single_heatmap_np = heatmaps_np[i] # 形状 (H, W)
             heatmap_uint8 = (single_heatmap_np * 255).astype(np.uint8)
 
-            # (A) 提取坐标
-            coords = _heatmap_to_coords(heatmap_uint8, threshold=threshold_uint8, min_circularity=args.min_circularity)
+            # (A) 提取坐标 (✨ 已修改：简化调用)
+            coords = _heatmap_to_coords(
+                heatmap_uint8, 
+                threshold=threshold_uint8
+            )
             
             # (B) 记录 CSV 和轨迹
             if coords is not None:
@@ -220,18 +211,48 @@ def process_video(video_path: Path, model, device, args, output_root_dir: Path):
     writer_traj.release()
     writer_comp.release()
     print(f"✅ Finished processing. Results saved in: {video_output_dir}")
+    
+    # ✨ 新增：返回统计结果
+    stats = {
+        'video_name': video_path.name,
+        'detected_frames': detected_frames_count,
+        'total_frames': total_frames,
+        'detection_ratio': round(detection_ratio, 4)
+    }
+    return stats
 
-# --- 3. “总调度室”: main 函数 (保持不变) ---
+
+# --- 4. “总调度室”: ✨ main (✨ 已修改) ✨ ---
 def main():
-    parser = argparse.ArgumentParser(description="TrackNetV5 Batch Inference Pipeline")
+    parser = argparse.ArgumentParser(description="TrackNet Batch Inference Pipeline")
     parser.add_argument('input_dir', type=str, help='Path to the directory containing input videos.')
     parser.add_argument('weights_path', type=str, help='Path to the model weights (.pth file).')
+    
+    # ✨ 新增架构选择参数
+    parser.add_argument(
+        '--arch', 
+        type=str, 
+        required=True, 
+        choices=['v2', 'v4', 'v5'], 
+        help='Model architecture to use (v2, v4, or v5).'
+    )
+    
     parser.add_argument('--device', type=str, default='cuda:0', help='Device to use for inference (e.g., "cuda:0" or "cpu").')
+    
+    # ✨ 唯一可调的后处理参数 ✨
     parser.add_argument('--threshold', type=float, default=0.5, help='Confidence threshold for detection (0-1).')
-    parser.add_argument('--min-circularity', type=float, default=0.7, help='Minimum circularity for a valid detection (0-1).')
+
+    # ✨✨✨ 已删除 --min-circularity 和 --min-area ✨✨✨
+    
     args = parser.parse_args()
 
-    print("🚀 Starting Batch Inference Pipeline...")
+    # ✨ 动态获取模型配置
+    model_cfg = MODEL_CONFIGS.get(args.arch)
+    if model_cfg is None:
+        print(f"❌ 错误：未知的架构 '{args.arch}'。请从 'v2', 'v4', 'v5' 中选择。")
+        return
+        
+    print(f"🚀 Starting Batch Inference Pipeline for [TrackNet {args.arch.upper()}]...")
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     
     model = build_model(model_cfg)
@@ -240,7 +261,9 @@ def main():
     print(f"✅ Model loaded from {args.weights_path} and sent to {device}.")
 
     input_dir = Path(args.input_dir)
-    output_root_dir = input_dir / "utracknet_mvat_wbce"
+    
+    # ✨ 动态设置输出目录
+    output_root_dir = input_dir / args.arch 
     output_root_dir.mkdir(exist_ok=True)
     
     print("🔎 Searching for .mp4 and .mov files...")
@@ -256,10 +279,47 @@ def main():
     video_files = sorted(list(set(video_files)))
     print(f"Found {len(video_files)} videos to process.")
     
+    # ✨ 1. 初始化汇总列表
+    summary_data_list = [] 
+    
     for video_path in video_files:
-        process_video(video_path, model, device, args, output_root_dir)
+        # ✨ 2. 收集每个视频的返回结果
+        try:
+            video_stats = process_video(video_path, model, device, args, output_root_dir)
+            if video_stats:
+                summary_data_list.append(video_stats)
+        except Exception as e:
+            print(f"❌ ERROR processing {video_path.name}: {e}")
+            print("Skipping this video and continuing...")
 
+    # ✨ 3. 循环结束后，写入全局汇总CSV
+    if summary_data_list:
+        summary_csv_path = output_root_dir / f"_summary_report_{args.arch}.csv"
+        print(f"\n📊 Writing summary report to {summary_csv_path}")
+        
+        fieldnames = ['video_name', 'detected_frames', 'total_frames', 'detection_ratio']
+        # 定义中文表头
+        chinese_header_map = {
+            'video_name': '视频名',
+            'detected_frames': '检测到的球帧数',
+            'total_frames': '视频总帧数',
+            'detection_ratio': '检测比率'
+        }
+        
+        try:
+            with open(summary_csv_path, 'w', newline='', encoding='utf-8-sig') as f:
+                # 写入UTF-8 BOM头和中文表头
+                writer = csv.writer(f)
+                writer.writerow([chinese_header_map[field] for field in fieldnames])
+                
+                # 使用 DictWriter 写入数据行
+                dict_writer = csv.DictWriter(f, fieldnames=fieldnames)
+                dict_writer.writerows(summary_data_list)
+        except Exception as e:
+            print(f"❌ ERROR writing summary CSV: {e}")
+            
     print(f"\n🎉🎉🎉 All videos processed! Check the results in: {output_root_dir} 🎉🎉🎉")
+
 
 if __name__ == '__main__':
     main()

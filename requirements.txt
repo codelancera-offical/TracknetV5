@@ -1,7 +1,7 @@
 # --- Core Deep Learning Framework ---
 # PyTorch serves as the fundamental library for building and training models.
-torch==2.9.0+cu126
-torchvision==0.24.0+cu126
+# torch==2.9.0+cu126
+# torchvision==0.24.0+cu126
 
 # --- Data Handling & Scientific Computing ---
 # Used for efficient array operations, data loading, and analysis.
