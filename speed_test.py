@@ -1,39 +1,76 @@
+# -*- coding: utf-8 -*-
 import torch
 import time
+import argparse  # 1. 导入 argparse
 from thop import profile
 from models_factory.builder import build_model
 
-# --- 1. “厨房重地”: 辅助函数和配置 ---
-model_cfg = dict(
-    type='TrackNetV2',
-    backbone=dict(
-        type='TrackNetV2Backbone',
-        in_channels=9
+# --- 1. “模型配置库” (和推理脚本中一致) ---
+MODEL_CONFIGS = {
+    'v2': dict(
+        type='TrackNetV2',
+        backbone=dict(type='TrackNetV2Backbone', in_channels=9),
+        neck=dict(type='TrackNetV2Neck'),
+        head=dict(type='TrackNetV2Head', in_channels=64, out_channels=3)
     ),
-    neck=dict(
-        type='TrackNetV2Neck'
+    'v4': dict(
+        type='TrackNetV4',
+        backbone=dict(type='TrackNetV4Backbone', in_channels=9),
+        neck=dict(type='TrackNetV4Neck'),
+        head=dict(type='TrackNetV4Head', in_channels=64, out_channels=3)
     ),
-    head=dict(
-        type='TrackNetV2Head',
-        in_channels=64,
-        out_channels=3
+    'v5': dict(
+        type='TrackNetV5',
+        backbone=dict(type='TrackNetV2Backbone', in_channels=13),
+        neck=dict(type='TrackNetV2Neck'),
+        head=dict(type='R_STRHead', in_channels=64, out_channels=3)
     )
+}
+
+# --- 2. 解析命令行参数 ---
+parser = argparse.ArgumentParser(description="TrackNet 性能测试脚本")
+parser.add_argument(
+    '--arch', 
+    type=str, 
+    required=True, 
+    choices=['v2', 'v4', 'v5'],
+    help='要测试的模型架构 (v2, v4, v5).'
 )
+parser.add_argument(
+    '--batch-size', 
+    type=int, 
+    default=2,
+    help='用于速度和显存测试的批量大小.'
+)
+args = parser.parse_args()
+
+# --- 3. 动态设置 ---
+# 动态获取模型配置
+model_cfg = MODEL_CONFIGS.get(args.arch)
+if model_cfg is None:
+    print(f"❌ 错误：未知的架构 '{args.arch}'。")
+    exit()
+
+print(f"\n--- 正在测试 [TrackNet {args.arch.upper()}] ---")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if not torch.cuda.is_available():
     print("警告：没有检测到CUDA，测试将在CPU上进行，结果可能不准确。")
 
-BATCH_SIZE = 2
-CHANNELS = 9
+# ✨ 关键：动态设置 BATCH_SIZE 和 CHANNELS
+BATCH_SIZE = args.batch_size
+CHANNELS = model_cfg['backbone']['in_channels']  # v2/v4 会是 9, v5 会是 13
 HEIGHT = 288
 WIDTH = 512
 
-# --- 2. 计算模型参数、GFLOPs ---
-# 【修改点】：我们先创建一个模型实例专门用于计算复杂度
+print(f"测试配置: Arch={args.arch}, Batch={BATCH_SIZE}, Channels={CHANNELS}, Size=({HEIGHT}, {WIDTH})")
+
+
+# --- 4. 计算模型参数、GFLOPs ---
 print("\n--- 模型复杂度 ---")
 try:
     # 建立模型
+    # ✨ 使用动态的 model_cfg
     model_for_flops = build_model(model_cfg).to(device)
     model_for_flops.eval()
 
@@ -44,12 +81,13 @@ try:
     print(f"可训练参数 (Trainable Params): {trainable_params / 1e6:.2f} M")
 
     # 2.2 计算 GFLOPs (计算量)
+    # ✨ 使用动态的 CHANNELS
     thop_input = torch.randn(1, CHANNELS, HEIGHT, WIDTH).to(device)
     flops, params = profile(model_for_flops, inputs=(thop_input, ), verbose=False)
     gflops = flops / 1e9
     print(f"单张图片 GFLOPs: {gflops:.2f} G")
 
-    # 【修改点】：计算完成后，删除这个带钩子的模型
+    # 计算完成后，删除这个带钩子的模型
     del model_for_flops
     del thop_input
     torch.cuda.empty_cache() # 清理一下显存
@@ -59,17 +97,18 @@ except Exception as e:
     exit()
 
 
-# --- 3. 测量显存占用 和 速度测试 ---
-# 【修改点】：在这里，我们重新创建一个“干净”的模型实例
+# --- 5. 测量显存占用 和 速度测试 ---
 print("\n--- 准备显存与速度测试 ---")
+# ✨ 使用动态的 model_cfg
 model = build_model(model_cfg)
 model.to(device)
 model.eval()
 
 # 3.1 创建用于测试的模拟数据
 try:
+    # ✨ 使用动态的 BATCH_SIZE 和 CHANNELS
     dummy_input = torch.randn(BATCH_SIZE, CHANNELS, HEIGHT, WIDTH,
-                            dtype=torch.float32).to(device)
+                              dtype=torch.float32).to(device)
 except RuntimeError as e:
     print(f"创建模拟数据时出错 (可能是显存不足): {e}")
     exit()
@@ -83,6 +122,7 @@ try:
     torch.cuda.synchronize(device)
     
     peak_memory_mb = torch.cuda.max_memory_allocated(device) / (1024 ** 2)
+    # ✨ BATCH_SIZE 已是动态变量
     print(f"峰值显存占用 (Batch Size={BATCH_SIZE}): {peak_memory_mb:.2f} MB")
 except RuntimeError as e:
     print(f"在测量显存时出错 (可能是OOM): {e}")
@@ -92,6 +132,7 @@ except RuntimeError as e:
 # 3.3 速度测试
 N_WARMUP = 50
 N_RUNS = 200
+# ✨ BATCH_SIZE 已是动态变量
 print(f"开始速度测试... Batch Size: {BATCH_SIZE}, 预热: {N_WARMUP} 轮, 测试: {N_RUNS} 轮")
 
 # 预热
@@ -114,7 +155,7 @@ with torch.no_grad():
     
     total_time = end_time - start_time
 
-# --- 4. 计算结果 ---
+# --- 6. 计算结果 ---
 total_images = BATCH_SIZE * N_RUNS
 fps = total_images / total_time
 batch_time_ms = (total_time / N_RUNS) * 1000

@@ -3,3 +3,4 @@ data/*
 work_dirs/*
 .idea/
 *.png
+weights/
