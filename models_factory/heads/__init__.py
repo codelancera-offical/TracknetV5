@@ -10,6 +10,7 @@ from .r_strhead import R_STRHead
 from .r_strhead_fs import R_STRHeadFS
 from .r_strhead_new import R_STRHeadNew
 from .tracknetv2_mdd_head import TrackNetV2MDDHead
+from .r_strhead_beta import R_STRHeadBeta
 
 __all__ = [
     'UTrackNetV1Head',
@@ -27,5 +28,6 @@ __all__ = [
     'R_STRHeadFS',
     'R_STRHeadImprove',
     'R_STRHeadNew',
-    'TrackNetV2MDDHead'
+    'TrackNetV2MDDHead',
+    'R_STRHeadBeta'
 ]
