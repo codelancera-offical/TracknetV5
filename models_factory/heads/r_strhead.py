@@ -25,11 +25,13 @@ class R_STRHead(nn.Module):
                  patch_size=16,
                  embed_dim=256,
                  num_transformer_layers=4,
-                 num_transformer_heads=1,
-                 IsDraft=False
+                 num_transformer_heads=2,
+                 IsDraft=False,
+                 dropout=True
                  ):
         super().__init__()
         self.IsDraft = IsDraft
+        self.dropout = dropout
         self.fusion_layer = FusionLayerTypeA()
         self.patch_size = patch_size
         self.embed_dim = embed_dim
@@ -52,18 +54,6 @@ class R_STRHead(nn.Module):
         # Positional Embeddings (保持不变)
         self.spatial_pos_embed = nn.Parameter(torch.randn(1, num_patches_per_frame, embed_dim))
         self.time_embed = nn.Parameter(torch.randn(1, 3, embed_dim))
-
-        # -----------------------------------------------------------------
-        # 【关键修改 1】: 添加 LayerNorm
-        # 作用：在进入 Attention 之前，强制把“弱信号”的向量模长拉大到和“强信号”一样。
-        # -----------------------------------------------------------------
-        # self.input_norm = nn.LayerNorm(embed_dim)
-
-        # -----------------------------------------------------------------
-        # 【关键修改 2】: 添加 Dropout 用于 "Masked Training"
-        # 作用：随机把草稿里的一些像素抹掉，强迫 Transformer 去看隔壁帧。
-        # p=0.1 意味着有 10% 的像素会被随机扔掉 (变成0)。
-        # -----------------------------------------------------------------
         self.context_dropout = nn.Dropout(p=0.1)
 
         # Transformer Encoder (保持不变)
@@ -92,16 +82,9 @@ class R_STRHead(nn.Module):
         # draft_clean 是我们最“干净”的草稿，用于最后的残差相加
         draft_clean = self.fusion_layer([draft_logits, residual_maps])
 
-        # ---------------------------------------------------------
-        # 【关键修改 2 的应用】: 给 Transformer 看 "受损" 的草稿
-        # ---------------------------------------------------------
-        if self.training:
-            # 仅在训练时破坏输入，强迫模型“脑补”
-            # 注意：我们只破坏送入 Transformer 的这份数据，
-            # 最后的残差连接 (final_logits) 还是要加在 clean 的草稿上。
+        if self.training and self.dropout == True:
             draft_for_transformer = self.context_dropout(draft_clean)
         else:
-            # 推理时不破坏，模型会利用全量信息进行更强的推理
             draft_for_transformer = draft_clean
 
         B, C, H, W = draft_for_transformer.shape
@@ -124,15 +107,6 @@ class R_STRHead(nn.Module):
         flat_curr = embd_curr.flatten(2).permute(0, 2, 1)
         flat_next = embd_next.flatten(2).permute(0, 2, 1)
 
-        # ---------------------------------------------------------
-        # 【关键修改 1 的应用】: LayerNorm 归一化
-        # ---------------------------------------------------------
-        # 在加上位置编码之前，先做归一化。
-        # 这样，无论 Draft 里的概率是 0.1 还是 0.9，生成的 Token 向量模长都差不多。
-        # Transformer 将被迫关注 "Pattern" (是不是球的形状/运动趋势) 而不是 "Intensity" (数值大小)。
-        # flat_prev = self.input_norm(flat_prev)
-        # flat_curr = self.input_norm(flat_curr)
-        # flat_next = self.input_norm(flat_next)
 
         # 3.4 加位置编码 (保持不变)
         time_prev_embed = self.time_embed[:, 0, :].unsqueeze(1)
@@ -161,8 +135,6 @@ class R_STRHead(nn.Module):
         # 4. 残差连接
         residual_logits = torch.cat([out_prev_residual, out_curr_residual, out_next_residual], dim=1)
 
-        # 【注意】: 这里一定要加在 clean 的草稿上，不要加在 dropout 过的草稿上！
-        # 我们希望：即使 Transformer 是看着残缺图算出的 Delta，也要把它加回到原始图上。
         final_logits = draft_for_transformer + residual_logits
 
         # 5. 最终激活

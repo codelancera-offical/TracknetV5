@@ -35,24 +35,6 @@ class ConvBlock(nn.Module):
 # -----------------------------------------------------------------
 @HEADS.register_module
 class TrackNetV2TSATTHead(nn.Module):
-    """
-    时空注意力头 (TrackNetV2TSATTHead) - 【残差精修版】
-
-    架构:
-    1.  Conv1 ("草稿"): [B, C_in, H, W] -> [B, 3, H_out, W_out]
-        -   用1x1卷积预测 t-1, t, t+1 三个时刻的"草稿"热力图。
-    2.  Encoder ("分块"):
-        -   将 3 张热力图拆分，各自独立进行分块嵌入。
-    3.  Positional Embedding ("分解式编码"):
-        -   为每个 Token 添加 "共享的空间编码" + "独立的时间编码"。
-    4.  Transformer ("精修"):
-        -   在完整的 N=1728 个时空 Token 序列上运行全局自注意力。
-        -   【关键】: Transformer 现在学习的是 "修正值" (Residual)。
-    5.  Decoder ("重建"):
-        -   将精修后的 Token 序列还原为 3 张 "修正热力图"。
-    6.  Residual Connection ("应用修正"):
-        -   最终输出 = "草稿" + "修正热力图"
-    """
 
     def __init__(self,
                  in_channels=64,  # Backbone的输入通道
@@ -61,11 +43,13 @@ class TrackNetV2TSATTHead(nn.Module):
                  patch_size=16,  # 分块大小
                  embed_dim=256,  # Transformer的工维度
                  num_transformer_layers=4,  # Transformer层数
-                 num_transformer_heads=1,  # Transformer多头注意力的头数
-                 IsDraft=False
+                 num_transformer_heads=2,  # Transformer多头注意力的头数
+                 IsDraft=False,
+                 dropout=True
                  ):
         super().__init__()
         self.IsDraft = IsDraft
+        self.dropout = dropout
         self.patch_size = patch_size
         self.embed_dim = embed_dim
         print("Head:", num_transformer_heads)
@@ -78,8 +62,6 @@ class TrackNetV2TSATTHead(nn.Module):
         # 2. 时空注意力模块 (Spatio-Temporal Attention Module)
         # -----------------------------------------------
 
-        # 2.1 分块嵌入 (Patch Embedding)
-        # 注意 in_channels=1，因为我们会把三张图拆开分别送进去
         self.embed_conv = nn.Conv2d(
             in_channels=1,
             out_channels=embed_dim,
@@ -87,31 +69,14 @@ class TrackNetV2TSATTHead(nn.Module):
             stride=patch_size
         )
 
-        # 2.2 分解式时空位置编码 (Factorized Spatio-Temporal Positional Embedding)
         H_img, W_img = img_size
         H_feat, W_feat = H_img // patch_size, W_img // patch_size  # (18, 32)
         num_patches_per_frame = H_feat * W_feat  # 576
 
-        # (1) 空间位置编码 (在 t-1, t, t+1 之间共享)
         self.spatial_pos_embed = nn.Parameter(torch.randn(1, num_patches_per_frame, embed_dim))
-
-        # (2) 时间位置编码 (t-1, t, t+1)
         self.time_embed = nn.Parameter(torch.randn(1, 3, embed_dim))  # 3个时间步
-
-        # -----------------------------------------------------------------
-        # 【关键修改 1】: 添加 LayerNorm
-        # 作用：在进入 Attention 之前，强制把“弱信号”的向量模长拉大到和“强信号”一样。
-        # -----------------------------------------------------------------
-        # self.input_norm = nn.LayerNorm(embed_dim)
-
-        # -----------------------------------------------------------------
-        # 【关键修改 2】: 添加 Dropout 用于 "Masked Training"
-        # 作用：随机把草稿里的一些像素抹掉，强迫 Transformer 去看隔壁帧。
-        # p=0.1 意味着有 10% 的像素会被随机扔掉 (变成0)。
-        # -----------------------------------------------------------------
         self.context_dropout = nn.Dropout(p=0.1)
 
-        # 2.3 Transformer 编码器
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=num_transformer_heads,
@@ -123,8 +88,6 @@ class TrackNetV2TSATTHead(nn.Module):
             num_layers=num_transformer_layers
         )
 
-        # 2.4 解码器 (Decoder) - 将Token还原回 "修正热力图"
-        # 这是一个简单的 "Patch Upsampling" 解码器
         self.decoder_head = nn.Sequential(
             nn.Conv2d(
                 in_channels=embed_dim,
@@ -134,38 +97,22 @@ class TrackNetV2TSATTHead(nn.Module):
             nn.PixelShuffle(patch_size)  # 智能上采样
         )
 
-        # 3. 最终的激活函数
         self.final_sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        # x 初始形状: [B, C_in, H_in, W_in]
 
-        # 1. 生成“草稿”预测 (无Sigmoid)
-        # 【重要】: 这是我们的残差连接的来源
         draft_clean = self.conv1(x)  # [B, 3, 288, 512]
 
-        # ---------------------------------------------------------
-        # 【关键修改 2 的应用】: 给 Transformer 看 "受损" 的草稿
-        # ---------------------------------------------------------
-        if self.training:
-            # 仅在训练时破坏输入，强迫模型“脑补”
-            # 注意：我们只破坏送入 Transformer 的这份数据，
-            # 最后的残差连接 (final_logits) 还是要加在 clean 的草稿上。
+
+        if self.training and self.dropout == True:
             draft_heatmaps = self.context_dropout(draft_clean)
         else:
-            # 推理时不破坏，模型会利用全量信息进行更强的推理
             draft_heatmaps = draft_clean
 
-        # 保存 Batch_size 和 H, W 供后续使用
         B, C, H, W = draft_heatmaps.shape
         H_feat, W_feat = H // self.patch_size, W // self.patch_size  # 18, 32
 
-        # -----------------------------------------------
-        # 2. 时空注意力模块
-        # -----------------------------------------------
 
-        # 2.1 拆分并添加通道维度
-        # .unsqueeze(1) 将 [B, H, W] 变为 [B, 1, H, W]
         draft_prev = draft_heatmaps[:, 0, :, :].unsqueeze(1)  # t-1
         draft_curr = draft_heatmaps[:, 1, :, :].unsqueeze(1)  # t
         draft_next = draft_heatmaps[:, 2, :, :].unsqueeze(1)  # t+1
@@ -181,15 +128,6 @@ class TrackNetV2TSATTHead(nn.Module):
         flat_curr = embd_curr.flatten(2).permute(0, 2, 1)
         flat_next = embd_next.flatten(2).permute(0, 2, 1)
 
-        # ---------------------------------------------------------
-        # 【关键修改 1 的应用】: LayerNorm 归一化
-        # ---------------------------------------------------------
-        # 在加上位置编码之前，先做归一化。
-        # 这样，无论 Draft 里的概率是 0.1 还是 0.9，生成的 Token 向量模长都差不多。
-        # Transformer 将被迫关注 "Pattern" (是不是球的形状/运动趋势) 而不是 "Intensity" (数值大小)。
-        # flat_prev = self.input_norm(flat_prev)
-        # flat_curr = self.input_norm(flat_curr)
-        # flat_next = self.input_norm(flat_next)
 
         # 2.4 添加分解式位置编码 (你的方案)
         # 提取时间编码, 形状 [1, 1, 128] 以便广播
