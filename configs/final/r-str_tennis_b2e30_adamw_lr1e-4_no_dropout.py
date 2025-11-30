@@ -105,7 +105,7 @@ evaluation = dict(
 
 # ------------------- 6. 运行时定义 (Runtime) -------------------
 total_epochs = 30
-work_dir = f'./work_dirs/{Path(__file__).stem}'
+work_dir = f'/root/autodl-tmp/{Path(__file__).stem}'
 
 
 log_config = dict(
