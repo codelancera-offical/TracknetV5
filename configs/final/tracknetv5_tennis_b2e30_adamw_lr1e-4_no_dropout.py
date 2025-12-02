@@ -1,20 +1,23 @@
 
 from pathlib import Path
 
+from torch import dropout
+
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
-    type='TrackNetV2',
+    type='TrackNetV5',
     backbone=dict(
-        type='TrackNetV2Backbone',
-        in_channels=9
+        type='TrackNetV2Backbone', # OK
+        in_channels=13
     ),
     neck=dict(
-        type='TrackNetV2Neck'
+        type='TrackNetV2Neck'# OK
     ),
-    head=dict(
-        type='TrackNetV2TSATTHead',
+    head=dict( 
+        type='R_STRHead',
         in_channels=64,
-        out_channels=3
+        out_channels=3,
+        dropout=False
     )
 )
 
@@ -86,10 +89,11 @@ lr_config = dict(
     # warmup_iters=50*200,          # 预热轮数（前 50 个 epoch）
     # warmup_ratio=1e-6,        # 初始学习率 (从接近 0 开始预热)
     # 学习率衰减步长 (epoch)
-    step=[20, 25],          # 在第 300 轮和第 400 轮结束时触发衰减
+    step=[20, 25],          # 在第 20 轮和第 25 轮结束时触发衰减
     # 衰减因子
     gamma=0.1                 # 每次衰减时，学习率乘以 0.1
 )
+
 # ------------------- 5. 评估策略定义 (Evaluation) -------------------
 evaluation = dict(
     interval=1,
@@ -104,6 +108,8 @@ evaluation = dict(
 total_epochs = 30
 work_dir = f'/root/autodl-tmp/{Path(__file__).stem}'
 
+# ✨ 修正三：根据您的要求，添加每轮最大迭代次数
+# steps_per_epoch = 200
 
 log_config = dict(
     interval=100,

@@ -1,6 +1,8 @@
 
 from pathlib import Path
 
+from torch import dropout
+
 # ------------------- 1. 模型定义 (Model) -------------------
 model = dict(
     type='TrackNetV2',
@@ -14,7 +16,8 @@ model = dict(
     head=dict(
         type='TrackNetV2TSATTHead',
         in_channels=64,
-        out_channels=3
+        out_channels=3,
+        dropout=False
     )
 )
 
