@@ -9,7 +9,7 @@ from .tracknetv2_mvdr_ts_attention_head_before import TrackNetV2MVDRTSATTHeadBef
 from .r_strhead import R_STRHead
 from .r_strhead_fs import R_STRHeadFS
 from .r_strhead_new import R_STRHeadNew
-
+from .r_strhead_edl import R_STRHead_EDL
 __all__ = [
     'UTrackNetV1Head',
     'InpaintNetHead',
@@ -25,5 +25,6 @@ __all__ = [
     'R_STRHead',
     'R_STRHeadFS',
     'R_STRHeadImprove',
-    'R_STRHeadNew'
+    'R_STRHeadNew',
+    'R_STRHead_EDL'
 ]
