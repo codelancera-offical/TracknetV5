@@ -50,7 +50,7 @@ class TrackNetV2MetricEDL:
         """根据一个批次的数据，更新计分板。"""
         B, _, H, W = logits.shape
         E = logits.view(B, -1, 2, H, W)  # [b, c, k, h, w]
-        S = torch.sum(E + 1, dim=1)
+        S = torch.sum(E + 1, dim=2)
         pred_tensor = torch.div(E[:, :, 0, :, :], S) * 255
         predictions = pred_tensor.cpu().numpy()
         _, c, h, w = predictions.shape

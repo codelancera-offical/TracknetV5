@@ -60,7 +60,7 @@ class EDLLoss(nn.Module):
         A = - (y * torch.log(p1) + (1 - y) * torch.log(p0))
 
         # 获得错误样本的one_hot编码
-        y_one_hot = torch.stack([1.0 - y, y], dim=2) # [B, K, C, H, W]
+        y_one_hot = torch.stack([1.0 - y, y], dim=2) # [B, C, k, H, W]
         alp = e * y_one_hot + 1
 
         # 重塑为[N, K]形状，N = B * C * H * W
