@@ -106,7 +106,7 @@ total_epochs = 30
 work_dir = f'./work_dirs/{Path(__file__).stem}'
 
 # ✨ 修正三：根据您的要求，添加每轮最大迭代次数
-steps_per_epoch = 200
+# steps_per_epoch = 2
 
 log_config = dict(
     interval=100,

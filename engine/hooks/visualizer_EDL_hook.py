@@ -52,9 +52,9 @@ class ValidationVisualizerEDLHook(BaseHook):
         # print(logits.shape)
         B, _, H, W = logits.shape
         E = logits.view(B, -1, 2, H, W) # [b, c, k, h, w]
-        S = torch.sun(E + 1, dim=1)
-        pred_tensor = torch.div(E[:, :, 0,:,:], S) * 255.0
-        pred_tensor.cpu()
+        S = torch.sum(E + 1, dim=2)
+        pred_tensor = torch.div(E[:, :, 0,:,:], S).cpu() * 255.0
+
 
         for i in range(input_tensor.size(0)):
             if self.vis_count >= self.num_samples_to_save:
